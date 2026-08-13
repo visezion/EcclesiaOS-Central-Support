@@ -56,7 +56,7 @@ final class SupportApiTest extends TestCase
             'X-EcclesiaOS-Installation' => $installation->installation_id,
         ];
         $ticketEvent = ['event_id' => (string) Str::uuid(), 'event_type' => 'ticket.created', 'payload' => ['reference' => 'SUP-REPLY123', 'subject' => 'Need help', 'description' => 'Please help.']];
-        $replyEvent = ['event_id' => (string) Str::uuid(), 'event_type' => 'ticket.reply.created', 'payload' => ['reference' => 'SUP-REPLY123', 'body' => 'We are looking into this.', 'author' => ['name' => 'Support Agent']]];
+        $replyEvent = ['event_id' => (string) Str::uuid(), 'event_type' => 'ticket.reply.created', 'payload' => ['reference' => 'SUP-REPLY123', 'reply' => ['body' => 'We are looking into this.', 'author_name' => 'Church Admin']]];
 
         $this->withHeaders($headers)->postJson('/api/v1/church/events', $ticketEvent)->assertCreated();
         $this->withHeaders($headers)->postJson('/api/v1/church/events', $replyEvent)->assertCreated();
@@ -64,5 +64,16 @@ final class SupportApiTest extends TestCase
 
         $this->assertDatabaseCount('support_replies', 1);
         $this->assertDatabaseHas('support_replies', ['body' => 'We are looking into this.']);
+    }
+
+    public function test_tracking_events_do_not_overwrite_ticket_content(): void
+    {
+        $token = 'eco_'.Str::random(56);
+        $installation = Installation::query()->create(['installation_id' => 'install-tracking', 'church_name' => 'Tracking Church', 'token_hash' => hash('sha256', $token)]);
+        $headers = ['Authorization' => 'Bearer '.$token, 'X-EcclesiaOS-Installation' => $installation->installation_id];
+        $this->withHeaders($headers)->postJson('/api/v1/church/events', ['event_id' => (string) Str::uuid(), 'event_type' => 'ticket.created', 'payload' => ['reference' => 'SUP-TRACK123', 'subject' => 'Original subject', 'description' => 'Original body']])->assertCreated();
+        $this->withHeaders($headers)->postJson('/api/v1/church/events', ['event_id' => (string) Str::uuid(), 'event_type' => 'ticket.tracking.updated', 'payload' => ['reference' => 'SUP-TRACK123', 'status' => 'in_progress', 'progress' => 45]])->assertCreated();
+
+        $this->assertDatabaseHas('support_tickets', ['reference' => 'SUP-TRACK123', 'subject' => 'Original subject', 'body' => 'Original body', 'status' => 'in_progress', 'progress' => 45]);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Models\CommunityQuestion;
 use App\Models\Installation;
 use App\Models\SupportEvent;
@@ -30,12 +31,24 @@ final class DashboardController
 
     public function createToken(Request $request): RedirectResponse
     {
-        $data = $request->validate(['installation_id' => ['required', 'string', 'max:120'], 'church_name' => ['required', 'string', 'max:180'], 'callback_url' => ['nullable', 'url', 'max:500']]);
+        $data = $request->validate(['installation_id' => ['required', 'string', 'max:120'], 'church_name' => ['required', 'string', 'max:180'], 'callback_url' => ['nullable', 'url', 'max:500', function (string $attribute, mixed $value, \Closure $fail): void {
+            if (blank($value)) {
+                return;
+            }
+            $parts = parse_url((string) $value);
+            if (! in_array(strtolower((string) ($parts['scheme'] ?? '')), ['http', 'https'], true) || isset($parts['user'], $parts['pass'], $parts['query'], $parts['fragment'])) {
+                $fail('The callback URL must be a public URL without credentials, query parameters, or fragments.');
+            }
+            if (app()->environment('production') && strtolower((string) ($parts['scheme'] ?? '')) !== 'https') {
+                $fail('Production callback URLs must use HTTPS.');
+            }
+        }]]);
         $token = config('support.installation_token_prefix', 'eco_').Str::random(56);
         Installation::query()->updateOrCreate(
             ['installation_id' => $data['installation_id']],
             ['church_name' => $data['church_name'], 'callback_url' => $data['callback_url'] ?? null, 'token_hash' => hash('sha256', $token), 'token_encrypted' => Crypt::encryptString($token), 'enabled' => true],
         );
+        AuditLog::query()->create(['user_id' => auth()->id(), 'action' => 'installation.token_rotated', 'installation_id' => $data['installation_id'], 'metadata' => ['church_name' => $data['church_name']], 'ip_address' => $request->ip(), 'user_agent' => $request->userAgent()]);
 
         return back()->with('installation_token', $token)->with('status', 'Installation connected. Copy the token now; it will not be shown again.');
     }
@@ -43,6 +56,7 @@ final class DashboardController
     public function toggleInstallation(Installation $installation): RedirectResponse
     {
         $installation->update(['enabled' => ! $installation->enabled]);
+        AuditLog::query()->create(['user_id' => auth()->id(), 'action' => $installation->enabled ? 'installation.enabled' : 'installation.disabled', 'installation_id' => $installation->installation_id, 'ip_address' => request()->ip(), 'user_agent' => request()->userAgent()]);
 
         return back()->with('status', $installation->enabled ? 'Installation enabled.' : 'Installation disabled.');
     }

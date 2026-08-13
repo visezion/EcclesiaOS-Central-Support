@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Models\CommunityQuestion;
 use App\Models\Installation;
 use App\Models\KnowledgeArticle;
@@ -15,15 +16,24 @@ use Illuminate\View\View;
 
 final class SupportManagementController
 {
-    public function tickets(): View
+    public function tickets(Request $request): View
     {
-        return view('support.tickets', ['tickets' => SupportTicket::query()->latest()->paginate(20)]);
+        $tickets = SupportTicket::query()
+            ->when($request->filled('q'), fn ($query) => $query->where(fn ($search) => $search->where('reference', 'like', '%'.$request->string('q').'%')->orWhere('subject', 'like', '%'.$request->string('q').'%')->orWhere('installation_id', 'like', '%'.$request->string('q').'%')))
+            ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')))
+            ->with('replies')
+            ->latest()
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('support.tickets', ['tickets' => $tickets]);
     }
 
     public function storeTicket(Request $request): RedirectResponse
     {
         $data = $request->validate(['installation_id' => ['required', 'string', 'max:120'], 'subject' => ['required', 'string', 'max:180'], 'body' => ['required', 'string', 'max:20000'], 'priority' => ['required', 'in:low,normal,high,urgent']]);
-        SupportTicket::query()->create([...$data, 'reference' => 'SUP-'.strtoupper(Str::random(8)), 'requester' => ['name' => 'Central Support']]);
+        $ticket = SupportTicket::query()->create([...$data, 'reference' => 'SUP-'.strtoupper(Str::random(8)), 'requester' => ['name' => 'Central Support']]);
+        $this->recordAudit('ticket.created', $ticket, ['reference' => $ticket->reference, 'installation_id' => $ticket->installation_id]);
 
         return back()->with('status', 'Ticket created.');
     }
@@ -40,6 +50,8 @@ final class SupportManagementController
             return back()->withErrors(['ticket' => 'Ticket saved locally, but the update could not be delivered to EcclesiaOS.']);
         }
 
+        $this->recordAudit('ticket.updated', $ticket, ['reference' => $ticket->reference, 'status' => $ticket->status, 'installation_id' => $ticket->installation_id]);
+
         return back()->with('status', 'Ticket updated.');
     }
 
@@ -55,12 +67,15 @@ final class SupportManagementController
             return back()->withErrors(['reply' => 'Reply saved locally, but it could not be delivered to EcclesiaOS.']);
         }
 
+        $this->recordAudit('ticket.reply.created', $ticket, ['reference' => $ticket->reference, 'internal' => $reply->is_internal, 'installation_id' => $ticket->installation_id]);
+
         return back()->with('status', 'Reply sent to EcclesiaOS.');
     }
 
     public function deleteTicket(SupportTicket $ticket): RedirectResponse
     {
         $ticket->delete();
+        $this->recordAudit('ticket.deleted', $ticket, ['reference' => $ticket->reference]);
 
         return back()->with('status', 'Ticket deleted.');
     }
@@ -73,6 +88,7 @@ final class SupportManagementController
     public function updateQuestion(Request $request, CommunityQuestion $question): RedirectResponse
     {
         $question->update($request->validate(['status' => ['required', 'in:pending_review,published,hidden,answered']]));
+        $this->recordAudit('community_question.updated', $question, ['status' => $question->status]);
 
         return back()->with('status', 'Community question updated.');
     }
@@ -80,19 +96,21 @@ final class SupportManagementController
     public function deleteQuestion(CommunityQuestion $question): RedirectResponse
     {
         $question->delete();
+        $this->recordAudit('community_question.deleted', $question);
 
         return back()->with('status', 'Community question deleted.');
     }
 
     public function knowledge(): View
     {
-        return view('support.knowledge', ['articles' => KnowledgeArticle::query()->latest()->paginate(20)]);
+        return view('support.knowledge', ['articles' => KnowledgeArticle::query()->latest()->paginate(20)->withQueryString()]);
     }
 
     public function storeArticle(Request $request): RedirectResponse
     {
         $data = $request->validate(['title' => ['required', 'string', 'max:180'], 'category' => ['required', 'string', 'max:80'], 'body' => ['required', 'string', 'max:50000']]);
-        KnowledgeArticle::query()->create([...$data, 'slug' => Str::slug($data['title']).'-'.Str::lower(Str::random(5)), 'published' => $request->boolean('published')]);
+        $article = KnowledgeArticle::query()->create([...$data, 'slug' => Str::slug($data['title']).'-'.Str::lower(Str::random(5)), 'published' => $request->boolean('published')]);
+        $this->recordAudit('knowledge_article.created', $article, ['published' => $article->published]);
 
         return back()->with('status', 'Knowledge article created.');
     }
@@ -100,6 +118,7 @@ final class SupportManagementController
     public function updateArticle(Request $request, KnowledgeArticle $article): RedirectResponse
     {
         $article->update([...$request->validate(['title' => ['required', 'string', 'max:180'], 'category' => ['required', 'string', 'max:80'], 'body' => ['required', 'string', 'max:50000']]), 'published' => $request->boolean('published')]);
+        $this->recordAudit('knowledge_article.updated', $article, ['published' => $article->published]);
 
         return back()->with('status', 'Knowledge article updated.');
     }
@@ -107,6 +126,7 @@ final class SupportManagementController
     public function deleteArticle(KnowledgeArticle $article): RedirectResponse
     {
         $article->delete();
+        $this->recordAudit('knowledge_article.deleted', $article);
 
         return back()->with('status', 'Knowledge article deleted.');
     }
@@ -119,6 +139,7 @@ final class SupportManagementController
     public function updateLive(Request $request, LiveMessage $message): RedirectResponse
     {
         $message->update($request->validate(['status' => ['required', 'in:open,assigned,resolved,closed']]));
+        $this->recordAudit('live_message.updated', $message, ['status' => $message->status, 'installation_id' => $message->installation_id]);
 
         return back()->with('status', 'Live support message updated.');
     }
@@ -133,7 +154,15 @@ final class SupportManagementController
         $data = $request->validate([
             'installation_id' => ['required', 'string', 'max:120'],
             'church_name' => ['required', 'string', 'max:180'],
-            'callback_url' => ['required', 'url', 'max:500'],
+            'callback_url' => ['required', 'url', 'max:500', function (string $attribute, mixed $value, \Closure $fail): void {
+                $parts = parse_url((string) $value);
+                if (! in_array(strtolower((string) ($parts['scheme'] ?? '')), ['http', 'https'], true) || isset($parts['user'], $parts['pass'], $parts['query'], $parts['fragment'])) {
+                    $fail('The callback URL must be a public URL without credentials, query parameters, or fragments.');
+                }
+                if (app()->environment('production') && strtolower((string) ($parts['scheme'] ?? '')) !== 'https') {
+                    $fail('Production callback URLs must use HTTPS.');
+                }
+            }],
         ]);
 
         $token = Str::random(64);
@@ -147,6 +176,8 @@ final class SupportManagementController
                 'enabled' => true,
             ],
         );
+
+        AuditLog::query()->create(['user_id' => auth()->id(), 'action' => 'installation.registered', 'installation_id' => $data['installation_id'], 'metadata' => ['church_name' => $data['church_name']], 'ip_address' => $request->ip(), 'user_agent' => $request->userAgent()]);
 
         return back()->with('installation_token', $token)->with('status', 'Installation registered and token created.');
     }
@@ -163,6 +194,27 @@ final class SupportManagementController
             return back()->withErrors(['remote' => 'The remote-support grant could not be exchanged. Check the callback URL, token, and grant expiry.']);
         }
 
+        $this->recordAudit('remote_support.grant_exchanged', $installation, ['installation_id' => $installation->installation_id, 'agent_id' => $data['agent_id']]);
+
         return back()->with('remote_login_url', $result['login_url'] ?? null)->with('status', 'Remote support grant exchanged successfully.');
+    }
+
+    public function audit(): View
+    {
+        return view('support.audit', ['logs' => AuditLog::query()->latest()->paginate(30)->withQueryString()]);
+    }
+
+    private function recordAudit(string $action, object $model, array $metadata = []): void
+    {
+        AuditLog::query()->create([
+            'user_id' => auth()->id(),
+            'action' => $action,
+            'installation_id' => $metadata['installation_id'] ?? ($model->installation_id ?? null),
+            'auditable_type' => $model::class,
+            'auditable_id' => $model->getKey(),
+            'metadata' => $metadata,
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+        ]);
     }
 }

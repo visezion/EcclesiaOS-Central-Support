@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\AuditLog;
 use App\Models\CommunityQuestion;
 use App\Models\KnowledgeArticle;
 use App\Models\LiveMessage;
@@ -30,8 +31,11 @@ final class SupportApiController
             ['event_id' => $data['event_id']],
             [...$data, 'installation_id' => $installation->installation_id],
         );
+        if ($event->wasRecentlyCreated) {
+            AuditLog::query()->create(['action' => 'api.event.received', 'installation_id' => $installation->installation_id, 'metadata' => ['event_type' => $data['event_type'], 'event_id' => $data['event_id']]]);
+        }
         $ticket = null;
-        if ($event->wasRecentlyCreated && in_array($data['event_type'], ['ticket.created', 'ticket.tracking.updated'], true)) {
+        if ($event->wasRecentlyCreated && $data['event_type'] === 'ticket.created') {
             $payload = $data['payload'];
             $ticket = SupportTicket::query()->updateOrCreate(
                 ['reference' => (string) ($payload['reference'] ?? 'SUP-'.$data['event_id'])],
@@ -50,14 +54,22 @@ final class SupportApiController
                 ],
             );
         }
+        if ($event->wasRecentlyCreated && $data['event_type'] === 'ticket.tracking.updated') {
+            $payload = $data['payload'];
+            $ticket = SupportTicket::query()->where('reference', $payload['reference'] ?? null)->first();
+            if ($ticket) {
+                $ticket->update(collect($payload)->only(['status', 'priority', 'progress'])->all());
+            }
+        }
         if ($event->wasRecentlyCreated && $data['event_type'] === 'ticket.reply.created') {
             $payload = $data['payload'];
             $ticket = SupportTicket::query()->where('reference', $payload['reference'] ?? null)->first();
-            if ($ticket && filled($payload['body'] ?? null)) {
+            $reply = $payload['reply'] ?? $payload;
+            if ($ticket && filled($reply['body'] ?? null)) {
                 $ticket->replies()->create([
-                    'body' => (string) $payload['body'],
-                    'is_internal' => (bool) ($payload['is_internal'] ?? false),
-                    'author' => $payload['author'] ?? $payload['requester'] ?? ['name' => 'EcclesiaOS user'],
+                    'body' => (string) $reply['body'],
+                    'is_internal' => (bool) ($reply['is_internal'] ?? false),
+                    'author' => $reply['author'] ?? ['name' => $reply['author_name'] ?? 'EcclesiaOS user'],
                 ]);
             }
         }

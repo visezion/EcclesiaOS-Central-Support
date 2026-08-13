@@ -25,6 +25,12 @@ The authenticated staff interface provides installation registration and token
 rotation, ticket creation/editing/replies/status management, community
 moderation, knowledge-base publishing, live-support monitoring, and approved
 temporary remote-support grant exchange.
+An operational audit log records API events, moderation, ticket changes,
+installation actions, and remote-support activity.
+
+Ticket creation and tracking events preserve the original ticket content, and
+ticket replies are accepted in both the current nested client format and the
+flat compatibility format.
 
 ## Local setup
 
