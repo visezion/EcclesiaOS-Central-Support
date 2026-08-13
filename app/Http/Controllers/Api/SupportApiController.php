@@ -36,11 +36,16 @@ final class SupportApiController
                 ['reference' => (string) ($payload['reference'] ?? 'SUP-'.$data['event_id'])],
                 [
                     'installation_id' => $installation->installation_id,
+                    'category' => $payload['category'] ?? null,
                     'subject' => (string) ($payload['subject'] ?? 'EcclesiaOS support ticket'),
                     'body' => (string) ($payload['description'] ?? $payload['body'] ?? 'No description provided.'),
+                    'expected_outcome' => $payload['expected_outcome'] ?? null,
+                    'page_url' => $payload['page_url'] ?? null,
+                    'browser' => $payload['browser'] ?? null,
                     'requester' => $payload['reporter'] ?? null,
                     'status' => (string) ($payload['status'] ?? 'new'),
                     'priority' => (string) ($payload['priority'] ?? 'normal'),
+                    'progress' => (int) ($payload['progress'] ?? 5),
                 ],
             );
         }

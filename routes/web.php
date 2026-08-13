@@ -17,6 +17,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/support/tickets', [SupportManagementController::class, 'tickets'])->name('support.tickets');
     Route::post('/support/tickets', [SupportManagementController::class, 'storeTicket'])->name('support.tickets.store');
     Route::patch('/support/tickets/{ticket}', [SupportManagementController::class, 'updateTicket'])->name('support.tickets.update');
+    Route::post('/support/tickets/{ticket}/replies', [SupportManagementController::class, 'replyTicket'])->name('support.tickets.replies.store');
     Route::delete('/support/tickets/{ticket}', [SupportManagementController::class, 'deleteTicket'])->name('support.tickets.delete');
     Route::get('/support/community', [SupportManagementController::class, 'community'])->name('support.community');
     Route::patch('/support/community/{question}', [SupportManagementController::class, 'updateQuestion'])->name('support.community.update');

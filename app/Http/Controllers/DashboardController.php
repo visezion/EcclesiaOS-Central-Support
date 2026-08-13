@@ -7,6 +7,7 @@ use App\Models\Installation;
 use App\Models\SupportEvent;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -29,11 +30,11 @@ final class DashboardController
 
     public function createToken(Request $request): RedirectResponse
     {
-        $data = $request->validate(['installation_id' => ['required', 'string', 'max:120'], 'church_name' => ['required', 'string', 'max:180']]);
+        $data = $request->validate(['installation_id' => ['required', 'string', 'max:120'], 'church_name' => ['required', 'string', 'max:180'], 'callback_url' => ['nullable', 'url', 'max:500']]);
         $token = config('support.installation_token_prefix', 'eco_').Str::random(56);
         Installation::query()->updateOrCreate(
             ['installation_id' => $data['installation_id']],
-            ['church_name' => $data['church_name'], 'token_hash' => hash('sha256', $token), 'enabled' => true],
+            ['church_name' => $data['church_name'], 'callback_url' => $data['callback_url'] ?? null, 'token_hash' => hash('sha256', $token), 'token_encrypted' => Crypt::encryptString($token), 'enabled' => true],
         );
 
         return back()->with('installation_token', $token)->with('status', 'Installation connected. Copy the token now; it will not be shown again.');

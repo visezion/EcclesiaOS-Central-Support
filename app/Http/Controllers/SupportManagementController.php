@@ -7,6 +7,7 @@ use App\Models\Installation;
 use App\Models\KnowledgeArticle;
 use App\Models\LiveMessage;
 use App\Models\SupportTicket;
+use App\Services\InstallationCallback;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -27,11 +28,34 @@ final class SupportManagementController
         return back()->with('status', 'Ticket created.');
     }
 
-    public function updateTicket(Request $request, SupportTicket $ticket): RedirectResponse
+    public function updateTicket(Request $request, SupportTicket $ticket, InstallationCallback $callback): RedirectResponse
     {
         $ticket->update($request->validate(['subject' => ['required', 'string', 'max:180'], 'body' => ['required', 'string', 'max:20000'], 'status' => ['required', 'in:new,triaged,in_progress,waiting_on_church,resolved,closed'], 'priority' => ['required', 'in:low,normal,high,urgent']]));
+        $installation = Installation::query()->where('installation_id', $ticket->installation_id)->firstOrFail();
+        try {
+            $callback->ticketUpdated($installation, $ticket);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return back()->withErrors(['ticket' => 'Ticket saved locally, but the update could not be delivered to EcclesiaOS.']);
+        }
 
         return back()->with('status', 'Ticket updated.');
+    }
+
+    public function replyTicket(Request $request, SupportTicket $ticket, InstallationCallback $callback): RedirectResponse
+    {
+        $reply = $ticket->replies()->create($request->validate(['body' => ['required', 'string', 'max:10000'], 'is_internal' => ['nullable', 'boolean']]) + ['author' => ['name' => $request->user()->name], 'is_internal' => $request->boolean('is_internal')]);
+        $installation = Installation::query()->where('installation_id', $ticket->installation_id)->firstOrFail();
+        try {
+            $callback->replyCreated($installation, $ticket, $reply);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return back()->withErrors(['reply' => 'Reply saved locally, but it could not be delivered to EcclesiaOS.']);
+        }
+
+        return back()->with('status', 'Reply sent to EcclesiaOS.');
     }
 
     public function deleteTicket(SupportTicket $ticket): RedirectResponse
