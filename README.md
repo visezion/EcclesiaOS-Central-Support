@@ -21,10 +21,10 @@ Implemented client-compatible routes:
 - `GET /live-support`
 - `POST /live-support/messages`
 
-The web interface provides staff login, installation management, token
-provisioning, event activity, and community-question visibility. Ticket queues,
-article management, and remote-support exchange should be added behind the
-same authenticated staff area before production launch.
+The authenticated staff interface provides installation registration and token
+rotation, ticket creation/editing/replies/status management, community
+moderation, knowledge-base publishing, live-support monitoring, and approved
+temporary remote-support grant exchange.
 
 ## Local setup
 
@@ -33,7 +33,7 @@ cp .env.example .env
 php artisan key:generate
 php artisan migrate --force
 php artisan support:create-admin "Support Admin" admin@example.com "use-a-strong-password"
-php artisan support:installation-token installation-id "Example Church"
+php artisan support:installation-token installation-id "Example Church" https://church.example.org
 php artisan serve --host=127.0.0.1 --port=8090
 ```
 
@@ -51,4 +51,8 @@ tokens or `.env` files.
 - Store `CENTRAL_SUPPORT_AGENT_TOKEN` in a secret manager.
 - Restrict staff/admin routes by separate authentication and permissions before
   exposing an agent dashboard.
+- Enforce HTTPS callback URLs in production and allow only trusted church
+  domains or a private network egress policy.
+- Keep remote-support grants short-lived, single-use, audited, and explicitly
+  approved by a church administrator.
 - Add rate limiting, queue workers, backups, monitoring, and audit retention.

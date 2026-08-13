@@ -29,4 +29,6 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/support/live', [SupportManagementController::class, 'live'])->name('support.live');
     Route::patch('/support/live/{message}', [SupportManagementController::class, 'updateLive'])->name('support.live.update');
     Route::get('/support/central-connection', [SupportManagementController::class, 'connection'])->name('support.connection');
+    Route::post('/support/central-connection/installations', [SupportManagementController::class, 'registerInstallation'])->name('support.connection.installations.store');
+    Route::post('/support/central-connection/remote-exchange', [SupportManagementController::class, 'exchangeGrant'])->name('support.remote.exchange');
 });

@@ -127,4 +127,42 @@ final class SupportManagementController
     {
         return view('support.connection', ['installations' => Installation::query()->latest()->paginate(20)]);
     }
+
+    public function registerInstallation(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'installation_id' => ['required', 'string', 'max:120'],
+            'church_name' => ['required', 'string', 'max:180'],
+            'callback_url' => ['required', 'url', 'max:500'],
+        ]);
+
+        $token = Str::random(64);
+        Installation::query()->updateOrCreate(
+            ['installation_id' => $data['installation_id']],
+            [
+                'church_name' => $data['church_name'],
+                'callback_url' => rtrim($data['callback_url'], '/'),
+                'token_hash' => hash('sha256', $token),
+                'token_encrypted' => encrypt($token),
+                'enabled' => true,
+            ],
+        );
+
+        return back()->with('installation_token', $token)->with('status', 'Installation registered and token created.');
+    }
+
+    public function exchangeGrant(Request $request, InstallationCallback $callback): RedirectResponse
+    {
+        $data = $request->validate(['installation_id' => ['required', 'exists:installations,installation_id'], 'grant_token' => ['required', 'size:64'], 'agent_id' => ['required', 'string', 'max:255'], 'agent_name' => ['required', 'string', 'max:255'], 'agent_email' => ['required', 'email', 'max:255']]);
+        $installation = Installation::query()->where('installation_id', $data['installation_id'])->firstOrFail();
+        try {
+            $result = $callback->exchangeGrant($installation, collect($data)->except('installation_id')->all());
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return back()->withErrors(['remote' => 'The remote-support grant could not be exchanged. Check the callback URL, token, and grant expiry.']);
+        }
+
+        return back()->with('remote_login_url', $result['login_url'] ?? null)->with('status', 'Remote support grant exchanged successfully.');
+    }
 }

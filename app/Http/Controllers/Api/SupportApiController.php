@@ -3,11 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\CommunityQuestion;
+use App\Models\KnowledgeArticle;
+use App\Models\LiveMessage;
 use App\Models\SupportEvent;
 use App\Models\SupportTicket;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 final class SupportApiController
 {
@@ -49,6 +50,17 @@ final class SupportApiController
                 ],
             );
         }
+        if ($event->wasRecentlyCreated && $data['event_type'] === 'ticket.reply.created') {
+            $payload = $data['payload'];
+            $ticket = SupportTicket::query()->where('reference', $payload['reference'] ?? null)->first();
+            if ($ticket && filled($payload['body'] ?? null)) {
+                $ticket->replies()->create([
+                    'body' => (string) $payload['body'],
+                    'is_internal' => (bool) ($payload['is_internal'] ?? false),
+                    'author' => $payload['author'] ?? $payload['requester'] ?? ['name' => 'EcclesiaOS user'],
+                ]);
+            }
+        }
 
         return response()->json(
             ['received' => true, 'duplicate' => ! $event->wasRecentlyCreated, 'id' => $event->id, 'ticket_id' => $ticket?->id],
@@ -58,7 +70,7 @@ final class SupportApiController
 
     public function questions(Request $request): JsonResponse
     {
-        $questions = CommunityQuestion::query()->latest()->paginate(20);
+        $questions = CommunityQuestion::query()->where('status', 'published')->when($request->filled('q'), fn ($query) => $query->where(fn ($search) => $search->where('title', 'like', '%'.$request->string('q').'%')->orWhere('body', 'like', '%'.$request->string('q').'%')))->when($request->filled('category'), fn ($query) => $query->where('category', $request->string('category')))->latest()->paginate(20);
 
         return response()->json(['data' => $questions->items(), 'meta' => ['current_page' => $questions->currentPage(), 'last_page' => $questions->lastPage(), 'total' => $questions->total()]]);
     }
@@ -79,20 +91,29 @@ final class SupportApiController
         return response()->json(CommunityQuestion::query()->create($data), 201);
     }
 
-    public function knowledge(): JsonResponse
+    public function knowledge(Request $request): JsonResponse
     {
-        return response()->json(['data' => [], 'meta' => ['total' => 0], 'categories' => []]);
+        $query = KnowledgeArticle::query()->where('published', true)->when($request->filled('q'), fn ($builder) => $builder->where(fn ($search) => $search->where('title', 'like', '%'.$request->string('q').'%')->orWhere('body', 'like', '%'.$request->string('q').'%')))->when($request->filled('category'), fn ($builder) => $builder->where('category', $request->string('category')));
+        $articles = $query->latest()->paginate(20);
+
+        return response()->json(['data' => $articles->items(), 'meta' => ['current_page' => $articles->currentPage(), 'last_page' => $articles->lastPage(), 'total' => $articles->total()], 'categories' => KnowledgeArticle::query()->where('published', true)->distinct()->pluck('category')->values()]);
     }
 
-    public function live(): JsonResponse
+    public function live(Request $request): JsonResponse
     {
-        return response()->json(['online' => false, 'queue_position' => null, 'average_response' => null, 'messages' => [], 'suggested_articles' => []]);
+        $installation = $request->attributes->get('installation');
+        $messages = LiveMessage::query()->where('installation_id', $installation->installation_id)->latest()->limit(50)->get();
+
+        return response()->json(['online' => (bool) config('support.live_online', true), 'queue_position' => null, 'average_response' => config('support.average_response_minutes', 30), 'messages' => $messages, 'suggested_articles' => KnowledgeArticle::query()->where('published', true)->latest()->limit(3)->get()]);
     }
 
     public function liveMessage(Request $request): JsonResponse
     {
         $data = $request->validate(['message' => ['required', 'string', 'min:2', 'max:5000'], 'author' => ['required', 'array']]);
 
-        return response()->json(['id' => (string) Str::uuid(), 'received' => true, 'message' => $data['message']], 201);
+        $installation = $request->attributes->get('installation');
+        $message = LiveMessage::query()->create(['installation_id' => $installation->installation_id, 'author' => $data['author'], 'body' => $data['message'], 'status' => 'open']);
+
+        return response()->json(['id' => (string) $message->id, 'received' => true, 'message' => $message->body], 201);
     }
 }

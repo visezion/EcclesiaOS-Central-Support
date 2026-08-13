@@ -12,6 +12,21 @@ use RuntimeException;
 
 final class InstallationCallback
 {
+    public function exchangeGrant(Installation $installation, array $payload): array
+    {
+        $token = $this->token($installation);
+        if ($installation->callback_url === null || $token === '') {
+            throw new RuntimeException('This installation has no callback URL or usable token.');
+        }
+        $url = rtrim((string) $installation->callback_url, '/').'/support/central-access/exchange';
+        $response = Http::acceptJson()->asJson()->withToken($token)->connectTimeout(5)->timeout(20)->post($url, $payload);
+        if ($response->failed()) {
+            throw new RuntimeException('EcclesiaOS remote-support exchange returned HTTP '.$response->status().'.');
+        }
+
+        return (array) $response->json();
+    }
+
     public function ticketUpdated(Installation $installation, SupportTicket $ticket): void
     {
         $this->send($installation, [
@@ -39,11 +54,11 @@ final class InstallationCallback
 
     private function send(Installation $installation, array $payload): void
     {
-        $url = rtrim((string) $installation->callback_url, '/').'/support/central-events';
         $token = $this->token($installation);
         if ($installation->callback_url === null || $token === '') {
             throw new RuntimeException('This installation has no callback URL or usable token. Rotate its installation token first.');
         }
+        $url = rtrim((string) $installation->callback_url, '/').'/support/central-events';
         $response = Http::acceptJson()->asJson()->withToken($token)->connectTimeout(5)->timeout(20)->post($url, $payload);
         if ($response->failed()) {
             throw new RuntimeException('EcclesiaOS callback returned HTTP '.$response->status().'.');
