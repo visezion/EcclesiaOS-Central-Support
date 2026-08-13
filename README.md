@@ -21,9 +21,10 @@ Implemented client-compatible routes:
 - `GET /live-support`
 - `POST /live-support/messages`
 
-The API currently provides the safe connection and ingestion foundation. Agent
-workspace, article management, ticket queues, and remote-support exchange
-should be added behind authenticated staff routes before production launch.
+The web interface provides staff login, installation management, token
+provisioning, event activity, and community-question visibility. Ticket queues,
+article management, and remote-support exchange should be added behind the
+same authenticated staff area before production launch.
 
 ## Local setup
 
@@ -31,9 +32,12 @@ should be added behind authenticated staff routes before production launch.
 cp .env.example .env
 php artisan key:generate
 php artisan migrate --force
+php artisan support:create-admin "Support Admin" admin@example.com "use-a-strong-password"
 php artisan support:installation-token installation-id "Example Church"
 php artisan serve --host=127.0.0.1 --port=8090
 ```
+
+Open `http://127.0.0.1:8090/login` and sign in with the staff account.
 
 The token command displays the token once. Store it in the EcclesiaOS
 Administration > Support Center > Central Connection settings. Never commit
