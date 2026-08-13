@@ -20,6 +20,9 @@ final class SupportDashboardTest extends TestCase
         $this->get('/login')->assertOk()->assertSee('Welcome back');
         $this->post('/login', ['email' => $user->email, 'password' => 'Password!234'])->assertRedirect('/dashboard');
         $this->get('/dashboard')->assertOk()->assertSee('Example Church')->assertSee('Central Support');
+        foreach (['/support/tickets', '/support/community', '/support/knowledge', '/support/live', '/support/central-connection'] as $path) {
+            $this->get($path)->assertOk();
+        }
     }
 
     public function test_guests_cannot_view_the_dashboard(): void
