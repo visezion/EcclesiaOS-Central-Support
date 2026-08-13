@@ -24,13 +24,14 @@ final class SupportApiTest extends TestCase
             'X-EcclesiaOS-Installation' => $installation->installation_id,
             'X-EcclesiaOS-Version' => '1.0.31',
         ];
-        $event = ['event_id' => (string) Str::uuid(), 'event_type' => 'ticket.updated', 'payload' => ['status' => 'triaged']];
+        $event = ['event_id' => (string) Str::uuid(), 'event_type' => 'ticket.created', 'payload' => ['reference' => 'SUP-TEST123', 'subject' => 'Cannot send email', 'description' => 'The church email test is failing.', 'reporter' => ['name' => 'Church Admin'], 'status' => 'new', 'priority' => 'high']];
 
         $this->withHeaders($headers)->getJson('/api/v1/installations/ping')->assertOk()->assertJsonPath('service', 'EcclesiaOS Central Support');
         $this->withHeaders($headers)->postJson('/api/v1/church/events', $event)->assertCreated()->assertJsonPath('duplicate', false);
         $this->withHeaders($headers)->postJson('/api/v1/church/events', $event)->assertOk()->assertJsonPath('duplicate', true);
 
         $this->assertDatabaseCount('support_events', 1);
+        $this->assertDatabaseHas('support_tickets', ['reference' => 'SUP-TEST123', 'subject' => 'Cannot send email', 'priority' => 'high']);
         $this->assertDatabaseHas('installations', ['installation_id' => 'install-test', 'version' => '1.0.31']);
     }
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\CommunityQuestion;
 use App\Models\SupportEvent;
+use App\Models\SupportTicket;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -28,9 +29,24 @@ final class SupportApiController
             ['event_id' => $data['event_id']],
             [...$data, 'installation_id' => $installation->installation_id],
         );
+        $ticket = null;
+        if ($event->wasRecentlyCreated && in_array($data['event_type'], ['ticket.created', 'ticket.tracking.updated'], true)) {
+            $payload = $data['payload'];
+            $ticket = SupportTicket::query()->updateOrCreate(
+                ['reference' => (string) ($payload['reference'] ?? 'SUP-'.$data['event_id'])],
+                [
+                    'installation_id' => $installation->installation_id,
+                    'subject' => (string) ($payload['subject'] ?? 'EcclesiaOS support ticket'),
+                    'body' => (string) ($payload['description'] ?? $payload['body'] ?? 'No description provided.'),
+                    'requester' => $payload['reporter'] ?? null,
+                    'status' => (string) ($payload['status'] ?? 'new'),
+                    'priority' => (string) ($payload['priority'] ?? 'normal'),
+                ],
+            );
+        }
 
         return response()->json(
-            ['received' => true, 'duplicate' => ! $event->wasRecentlyCreated, 'id' => $event->id],
+            ['received' => true, 'duplicate' => ! $event->wasRecentlyCreated, 'id' => $event->id, 'ticket_id' => $ticket?->id],
             $event->wasRecentlyCreated ? 201 : 200,
         );
     }
