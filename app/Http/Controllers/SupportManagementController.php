@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\CommunityQuestion;
 use App\Models\Installation;
 use App\Models\KnowledgeArticle;
+use App\Models\KnowledgeCategory;
 use App\Models\LiveMessage;
 use App\Models\SupportTicket;
 use App\Services\InstallationCallback;
@@ -115,7 +116,7 @@ final class SupportManagementController
 
     public function createArticle(): View
     {
-        return view('support.knowledge.create');
+        return view('support.knowledge.create', ['categories' => KnowledgeCategory::query()->orderBy('name')->get()]);
     }
 
     public function showArticle(KnowledgeArticle $article): View
@@ -125,7 +126,41 @@ final class SupportManagementController
 
     public function editArticle(KnowledgeArticle $article): View
     {
-        return view('support.knowledge.edit', ['article' => $article]);
+        return view('support.knowledge.edit', ['article' => $article, 'categories' => KnowledgeCategory::query()->orderBy('name')->get()]);
+    }
+
+    public function categories(): View
+    {
+        return view('support.knowledge.categories', ['categories' => KnowledgeCategory::query()->withCount('articles')->orderBy('name')->get()]);
+    }
+
+    public function storeCategory(Request $request): RedirectResponse
+    {
+        $data = $request->validate(['name' => ['required', 'string', 'max:80', 'unique:knowledge_categories,name']]);
+        KnowledgeCategory::query()->create(['name' => $data['name'], 'slug' => Str::slug($data['name'])]);
+
+        return back()->with('status', 'Knowledge category created.');
+    }
+
+    public function updateCategory(Request $request, KnowledgeCategory $category): RedirectResponse
+    {
+        $data = $request->validate(['name' => ['required', 'string', 'max:80', 'unique:knowledge_categories,name,'.$category->id]]);
+        $oldName = $category->name;
+        $category->update(['name' => $data['name'], 'slug' => Str::slug($data['name'])]);
+        KnowledgeArticle::query()->where('category', $oldName)->update(['category' => $data['name']]);
+
+        return back()->with('status', 'Knowledge category updated. Articles using it were updated too.');
+    }
+
+    public function deleteCategory(KnowledgeCategory $category): RedirectResponse
+    {
+        if ($category->articles()->exists()) {
+            return back()->withErrors(['category' => 'This category still has articles. Move or delete those articles before deleting the category.']);
+        }
+
+        $category->delete();
+
+        return back()->with('status', 'Knowledge category deleted.');
     }
 
     public function storeArticle(Request $request): RedirectResponse

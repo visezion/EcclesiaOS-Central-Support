@@ -32,6 +32,10 @@ Route::middleware(['auth', 'super_admin'])->group(function (): void {
     Route::delete('/support/community/{question}', [SupportManagementController::class, 'deleteQuestion'])->name('support.community.delete');
     Route::get('/support/knowledge', [SupportManagementController::class, 'knowledge'])->name('support.knowledge');
     Route::get('/support/knowledge/create', [SupportManagementController::class, 'createArticle'])->name('support.knowledge.create');
+    Route::get('/support/knowledge/categories', [SupportManagementController::class, 'categories'])->name('support.knowledge.categories');
+    Route::post('/support/knowledge/categories', [SupportManagementController::class, 'storeCategory'])->name('support.knowledge.categories.store');
+    Route::patch('/support/knowledge/categories/{category}', [SupportManagementController::class, 'updateCategory'])->name('support.knowledge.categories.update');
+    Route::delete('/support/knowledge/categories/{category}', [SupportManagementController::class, 'deleteCategory'])->name('support.knowledge.categories.delete');
     Route::get('/support/knowledge/{article}', [SupportManagementController::class, 'showArticle'])->name('support.knowledge.show');
     Route::get('/support/knowledge/{article}/edit', [SupportManagementController::class, 'editArticle'])->name('support.knowledge.edit');
     Route::post('/support/knowledge', [SupportManagementController::class, 'storeArticle'])->name('support.knowledge.store');

@@ -10,6 +10,7 @@
             ['Knowledge Base', 'support.knowledge', '▥'],
             ['Live Support', 'support.live', '◉'],
         ],
+        'Knowledge Tools' => [['Categories', 'support.knowledge.categories', '+']],
         'Administration' => [
             ['Update Center', 'system.update.page', '↻'],
             ['Central Connection', 'support.connection', '⌁'],
