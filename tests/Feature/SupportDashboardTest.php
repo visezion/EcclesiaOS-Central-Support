@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Installation;
+use App\Models\LiveMessage;
+use App\Models\SupportTicket;
 use App\Models\User;
 use Database\Seeders\KnowledgeBaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -52,6 +54,44 @@ final class SupportDashboardTest extends TestCase
         Http::assertSent(fn ($request) => $request->url() === 'http://updater.test/update'
             && $request->hasHeader('Authorization', 'Bearer test-token')
             && $request['ref'] === 'latest');
+    }
+
+    public function test_staff_can_reply_to_a_live_support_conversation(): void
+    {
+        $user = User::factory()->create();
+        Installation::query()->create(['installation_id' => 'church-a', 'church_name' => 'Example Church', 'token_hash' => hash('sha256', 'token')]);
+        LiveMessage::query()->create(['installation_id' => 'church-a', 'author' => ['display_name' => 'Church user', 'role' => 'church'], 'body' => 'We need help with our support setup.', 'status' => 'open']);
+
+        $this->actingAs($user)->get('/support/live?installation_id=church-a')->assertOk()->assertSee('Example Church');
+        $this->actingAs($user)->post('/support/live/church-a/messages', ['body' => 'I am checking this for you now.'])->assertRedirect();
+
+        $this->assertDatabaseHas('live_messages', ['installation_id' => 'church-a', 'body' => 'I am checking this for you now.']);
+        $this->assertSame('agent', data_get(LiveMessage::query()->latest('id')->firstOrFail()->author, 'role'));
+    }
+
+    public function test_ticket_updates_include_installation_identity_in_the_ecclesiaos_callback(): void
+    {
+        $user = User::factory()->create();
+        Installation::query()->create([
+            'installation_id' => 'church-a',
+            'church_name' => 'Example Church',
+            'callback_url' => 'https://church.example.org',
+            'token_hash' => hash('sha256', 'token'),
+            'token_encrypted' => encrypt('token'),
+        ]);
+        $ticket = SupportTicket::query()->create(['reference' => 'SUP-CALLBACK1', 'installation_id' => 'church-a', 'subject' => 'Callback test', 'body' => 'Test callback delivery.', 'status' => 'new', 'priority' => 'normal']);
+        Http::fake(['https://church.example.org/*' => Http::response(['received' => true])]);
+
+        $this->actingAs($user)->patch(route('support.tickets.update', $ticket), [
+            'subject' => 'Callback test',
+            'body' => 'Updated callback delivery.',
+            'status' => 'in_progress',
+            'priority' => 'high',
+        ])->assertRedirect();
+
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://church.example.org/support/central-events'
+            && $request->hasHeader('Authorization', 'Bearer token')
+            && $request->hasHeader('X-EcclesiaOS-Installation', 'church-a'));
     }
 
     public function test_default_update_knowledge_article_is_seeded_and_published(): void

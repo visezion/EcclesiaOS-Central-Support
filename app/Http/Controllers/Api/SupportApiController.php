@@ -202,14 +202,19 @@ final class SupportApiController
     public function live(Request $request): JsonResponse
     {
         $installation = $request->attributes->get('installation');
-        $messages = LiveMessage::query()->where('installation_id', $installation->installation_id)->latest()->limit(50)->get()->reverse()->values()->map(fn (LiveMessage $message): array => [
-            'id' => (string) $message->id,
-            'body' => $message->body,
-            'mine' => false,
-            'status' => $message->status,
-            'sent_at' => $message->created_at?->toIso8601String(),
-            'author' => $message->author,
-        ]);
+        $messages = LiveMessage::query()->where('installation_id', $installation->installation_id)->latest()->limit(100)->get()->reverse()->values()->map(function (LiveMessage $message): array {
+            $agent = data_get($message->author, 'role', 'church') === 'agent';
+
+            return [
+                'id' => (string) $message->id,
+                'body' => $message->body,
+                'mine' => ! $agent,
+                'status' => $message->status,
+                'read_at' => $message->read_at?->toIso8601String(),
+                'sent_at' => $message->created_at?->toIso8601String(),
+                'author' => $message->author,
+            ];
+        });
 
         return response()->json(['online' => (bool) config('support.live_online', true), 'agents_online' => config('support.live_online', true) ? 1 : 0, 'agent' => ['name' => 'Central Support'], 'queue_position' => null, 'average_response' => config('support.average_response_minutes', 30).' minutes', 'messages' => $messages, 'suggested_articles' => KnowledgeArticle::query()->where('published', true)->latest()->limit(3)->get()->map(fn (KnowledgeArticle $article): array => $this->articlePayload($article))]);
     }
@@ -219,9 +224,14 @@ final class SupportApiController
         $data = $request->validate(['message' => ['required', 'string', 'min:2', 'max:5000'], 'author' => ['required', 'array']]);
 
         $installation = $request->attributes->get('installation');
-        $message = LiveMessage::query()->create(['installation_id' => $installation->installation_id, 'author' => $data['author'], 'body' => $data['message'], 'status' => 'open']);
+        $message = LiveMessage::query()->create([
+            'installation_id' => $installation->installation_id,
+            'author' => [...$data['author'], 'role' => 'church'],
+            'body' => $data['message'],
+            'status' => 'open',
+        ]);
 
-        return response()->json(['id' => (string) $message->id, 'message_id' => (string) $message->id, 'received' => true, 'message' => $message->body], 201);
+        return response()->json(['id' => (string) $message->id, 'message_id' => (string) $message->id, 'received' => true, 'message' => $message->body, 'sent_at' => $message->created_at?->toIso8601String()], 201);
     }
 
     private function articlePayload(KnowledgeArticle $article, bool $includeBody = false): array

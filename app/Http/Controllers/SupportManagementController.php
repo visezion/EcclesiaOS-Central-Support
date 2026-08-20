@@ -201,9 +201,49 @@ final class SupportManagementController
         return redirect()->route('support.knowledge')->with('status', 'Knowledge article deleted.');
     }
 
-    public function live(): View
+    public function live(Request $request): View
     {
-        return view('support.live', ['messages' => LiveMessage::query()->latest()->paginate(30)]);
+        $messages = LiveMessage::query()->latest()->limit(500)->get()->reverse()->values();
+        $installations = Installation::query()->whereIn('installation_id', $messages->pluck('installation_id')->unique())->get()->keyBy('installation_id');
+        $conversations = $messages->groupBy('installation_id')->map(function ($items, string $installationId) use ($installations): array {
+            $latest = $items->last();
+            $unread = $items->filter(fn (LiveMessage $message): bool => data_get($message->author, 'role', 'church') !== 'agent' && $message->read_at === null)->count();
+
+            return [
+                'installation_id' => $installationId,
+                'church_name' => $installations->get($installationId)?->church_name ?? $installationId,
+                'latest' => $latest,
+                'unread' => $unread,
+                'messages' => $items,
+            ];
+        })->sortByDesc(fn (array $conversation): int => $conversation['latest']?->getKey() ?? 0)->values();
+        $selectedId = (string) ($request->query('installation_id') ?: $conversations->first()['installation_id'] ?? '');
+        $selected = $conversations->firstWhere('installation_id', $selectedId);
+
+        if ($selected) {
+            LiveMessage::query()->where('installation_id', $selectedId)->whereNull('read_at')->get()->each(function (LiveMessage $message): void {
+                if (data_get($message->author, 'role', 'church') !== 'agent') {
+                    $message->forceFill(['read_at' => now()])->save();
+                }
+            });
+        }
+
+        return view('support.live', compact('conversations', 'selected', 'selectedId'));
+    }
+
+    public function replyLive(Request $request, string $installationId): RedirectResponse
+    {
+        $installation = Installation::query()->where('installation_id', $installationId)->firstOrFail();
+        $data = $request->validate(['body' => ['required', 'string', 'min:1', 'max:5000']]);
+        $message = LiveMessage::query()->create([
+            'installation_id' => $installation->installation_id,
+            'author' => ['name' => $request->user()->name, 'display_name' => $request->user()->name, 'role' => 'agent'],
+            'body' => $data['body'],
+            'status' => 'open',
+        ]);
+        $this->recordAudit('live_message.replied', $message, ['installation_id' => $installation->installation_id]);
+
+        return redirect()->route('support.live', ['installation_id' => $installation->installation_id])->with('status', 'Reply sent to '.$installation->church_name.'.');
     }
 
     public function updateLive(Request $request, LiveMessage $message): RedirectResponse

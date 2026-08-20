@@ -19,7 +19,9 @@ final class InstallationCallback
             throw new RuntimeException('This installation has no callback URL or usable token.');
         }
         $url = rtrim((string) $installation->callback_url, '/').'/support/central-access/exchange';
-        $response = Http::acceptJson()->asJson()->withToken($token)->connectTimeout(5)->timeout(20)->post($url, $payload);
+        $response = Http::acceptJson()->asJson()->withToken($token)->withHeaders([
+            'X-EcclesiaOS-Installation' => $installation->installation_id,
+        ])->connectTimeout(5)->timeout(20)->post($url, $payload);
         if ($response->failed()) {
             throw new RuntimeException('EcclesiaOS remote-support exchange returned HTTP '.$response->status().'.');
         }
@@ -59,7 +61,9 @@ final class InstallationCallback
             throw new RuntimeException('This installation has no callback URL or usable token. Rotate its installation token first.');
         }
         $url = rtrim((string) $installation->callback_url, '/').'/support/central-events';
-        $response = Http::acceptJson()->asJson()->withToken($token)->connectTimeout(5)->timeout(20)->post($url, $payload);
+        $response = Http::acceptJson()->asJson()->withToken($token)->withHeaders([
+            'X-EcclesiaOS-Installation' => $installation->installation_id,
+        ])->connectTimeout(5)->timeout(20)->post($url, $payload);
         if ($response->failed()) {
             throw new RuntimeException('EcclesiaOS callback returned HTTP '.$response->status().'.');
         }
@@ -71,9 +75,16 @@ final class InstallationCallback
             return '';
         }
         try {
-            return Crypt::decryptString($installation->token_encrypted);
+            $decrypted = Crypt::decryptString($installation->token_encrypted);
+            $legacy = is_string($decrypted) ? @unserialize($decrypted, ['allowed_classes' => false]) : false;
+
+            return is_string($legacy) ? $legacy : $decrypted;
         } catch (\Throwable) {
-            return '';
+            try {
+                return (string) Crypt::decrypt($installation->token_encrypted);
+            } catch (\Throwable) {
+                return '';
+            }
         }
     }
 }

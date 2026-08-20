@@ -43,6 +43,7 @@ Route::middleware(['auth', 'super_admin'])->group(function (): void {
     Route::patch('/support/knowledge/{article}', [SupportManagementController::class, 'updateArticle'])->name('support.knowledge.update');
     Route::delete('/support/knowledge/{article}', [SupportManagementController::class, 'deleteArticle'])->name('support.knowledge.delete');
     Route::get('/support/live', [SupportManagementController::class, 'live'])->name('support.live');
+    Route::post('/support/live/{installationId}/messages', [SupportManagementController::class, 'replyLive'])->name('support.live.messages.store');
     Route::patch('/support/live/{message}', [SupportManagementController::class, 'updateLive'])->name('support.live.update');
     Route::get('/support/central-connection', [SupportManagementController::class, 'connection'])->name('support.connection');
     Route::get('/support/audit', [SupportManagementController::class, 'audit'])->name('support.audit');
