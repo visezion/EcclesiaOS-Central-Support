@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\SupportManagementController;
+use App\Http\Controllers\UpdateController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [AuthController::class, 'create']);
@@ -12,6 +13,9 @@ Route::post('/logout', [AuthController::class, 'destroy'])->middleware('auth')->
 
 Route::middleware('auth')->group(function (): void {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/system/update', [UpdateController::class, 'page'])->name('system.update.page');
+    Route::post('/system/update', [UpdateController::class, 'run'])->middleware('throttle:2,10')->name('system.update');
+    Route::get('/system/update/status', [UpdateController::class, 'status'])->name('system.update.status');
     Route::post('/installations/token', [DashboardController::class, 'createToken'])->name('installations.token');
     Route::patch('/installations/{installation}/toggle', [DashboardController::class, 'toggleInstallation'])->name('installations.toggle');
     Route::get('/support/tickets', [SupportManagementController::class, 'tickets'])->name('support.tickets');

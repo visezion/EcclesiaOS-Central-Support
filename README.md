@@ -49,6 +49,58 @@ The token command displays the token once. Store it in the EcclesiaOS
 Administration > Support Center > Central Connection settings. Never commit
 tokens or `.env` files.
 
+## Docker deployment
+
+Docker Compose runs the application with PHP/Apache and a persistent MySQL
+database. Docker volumes keep the database and uploaded Laravel storage when a
+new application image is built.
+
+On the server:
+
+```bash
+cp .env.docker.example .env
+# Edit .env and set APP_KEY, APP_URL, DB_PASSWORD, DB_ROOT_PASSWORD,
+# CENTRAL_SUPPORT_AGENT_TOKEN, UPDATE_AGENT_TOKEN, and any mail settings.
+docker compose up -d --build
+docker compose exec app php artisan migrate --force
+docker compose exec app php artisan optimize
+```
+
+Generate an application key before the first deployment if needed:
+
+```bash
+docker compose run --rm app php artisan key:generate --show
+```
+
+Copy the printed value into `APP_KEY` in `.env`, then start the services.
+Expose the configured port (`8090` by default) through a reverse proxy with
+HTTPS. Do not expose MySQL directly to the internet.
+
+### Updating a running deployment
+
+Commit and push changes to the configured branch. On the server run:
+
+```bash
+sh deploy/update.sh main
+```
+
+On Windows PowerShell, use:
+
+```powershell
+.\deploy\update.ps1 -Branch main
+```
+
+The update workflow fast-forwards the server, rebuilds the image, recreates
+only changed containers, runs migrations, refreshes Laravel caches, and shows
+the resulting service status. It does not remove Docker volumes. If an update
+fails, inspect `docker compose logs app` and fix the release before retrying.
+
+The dashboard also includes an **Update from GitHub** button. It is available
+to signed-in staff and uses the internal updater service to perform the same
+fast-forward pull, image rebuild, migration, and cache refresh. Set a long,
+random `UPDATE_AGENT_TOKEN` in `.env`; the updater is only exposed on the
+internal Docker network and the token is never shown in the browser.
+
 ## Production requirements
 
 - Deploy behind HTTPS and a reverse proxy.
