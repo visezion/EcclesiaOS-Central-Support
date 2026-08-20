@@ -17,6 +17,7 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/system/update', [UpdateController::class, 'run'])->middleware('throttle:2,10')->name('system.update');
     Route::get('/system/update/status', [UpdateController::class, 'status'])->name('system.update.status');
     Route::post('/installations/token', [DashboardController::class, 'createToken'])->name('installations.token');
+    Route::get('/installations/token', fn () => redirect()->to(route('dashboard').'#connect-church'));
     Route::patch('/installations/{installation}/toggle', [DashboardController::class, 'toggleInstallation'])->name('installations.toggle');
     Route::get('/support/tickets', [SupportManagementController::class, 'tickets'])->name('support.tickets');
     Route::post('/support/tickets', [SupportManagementController::class, 'storeTicket'])->name('support.tickets.store');
@@ -27,6 +28,9 @@ Route::middleware('auth')->group(function (): void {
     Route::patch('/support/community/{question}', [SupportManagementController::class, 'updateQuestion'])->name('support.community.update');
     Route::delete('/support/community/{question}', [SupportManagementController::class, 'deleteQuestion'])->name('support.community.delete');
     Route::get('/support/knowledge', [SupportManagementController::class, 'knowledge'])->name('support.knowledge');
+    Route::get('/support/knowledge/create', [SupportManagementController::class, 'createArticle'])->name('support.knowledge.create');
+    Route::get('/support/knowledge/{article}', [SupportManagementController::class, 'showArticle'])->name('support.knowledge.show');
+    Route::get('/support/knowledge/{article}/edit', [SupportManagementController::class, 'editArticle'])->name('support.knowledge.edit');
     Route::post('/support/knowledge', [SupportManagementController::class, 'storeArticle'])->name('support.knowledge.store');
     Route::patch('/support/knowledge/{article}', [SupportManagementController::class, 'updateArticle'])->name('support.knowledge.update');
     Route::delete('/support/knowledge/{article}', [SupportManagementController::class, 'deleteArticle'])->name('support.knowledge.delete');

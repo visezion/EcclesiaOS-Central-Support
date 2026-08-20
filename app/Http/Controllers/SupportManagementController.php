@@ -101,9 +101,31 @@ final class SupportManagementController
         return back()->with('status', 'Community question deleted.');
     }
 
-    public function knowledge(): View
+    public function knowledge(Request $request): View
     {
-        return view('support.knowledge', ['articles' => KnowledgeArticle::query()->latest()->paginate(20)->withQueryString()]);
+        $articles = KnowledgeArticle::query()
+            ->when($request->filled('q'), fn ($query) => $query->where(fn ($search) => $search->where('title', 'like', '%'.$request->string('q').'%')->orWhere('category', 'like', '%'.$request->string('q').'%')))
+            ->when($request->filled('status') && in_array($request->string('status')->toString(), ['published', 'draft'], true), fn ($query) => $query->where('published', $request->string('status')->toString() === 'published'))
+            ->latest()
+            ->paginate(12)
+            ->withQueryString();
+
+        return view('support.knowledge', ['articles' => $articles]);
+    }
+
+    public function createArticle(): View
+    {
+        return view('support.knowledge.create');
+    }
+
+    public function showArticle(KnowledgeArticle $article): View
+    {
+        return view('support.knowledge.show', ['article' => $article]);
+    }
+
+    public function editArticle(KnowledgeArticle $article): View
+    {
+        return view('support.knowledge.edit', ['article' => $article]);
     }
 
     public function storeArticle(Request $request): RedirectResponse
@@ -112,7 +134,7 @@ final class SupportManagementController
         $article = KnowledgeArticle::query()->create([...$data, 'slug' => Str::slug($data['title']).'-'.Str::lower(Str::random(5)), 'published' => $request->boolean('published')]);
         $this->recordAudit('knowledge_article.created', $article, ['published' => $article->published]);
 
-        return back()->with('status', 'Knowledge article created.');
+        return redirect()->route('support.knowledge.show', $article)->with('status', 'Knowledge article created.');
     }
 
     public function updateArticle(Request $request, KnowledgeArticle $article): RedirectResponse
@@ -120,7 +142,7 @@ final class SupportManagementController
         $article->update([...$request->validate(['title' => ['required', 'string', 'max:180'], 'category' => ['required', 'string', 'max:80'], 'body' => ['required', 'string', 'max:50000']]), 'published' => $request->boolean('published')]);
         $this->recordAudit('knowledge_article.updated', $article, ['published' => $article->published]);
 
-        return back()->with('status', 'Knowledge article updated.');
+        return redirect()->route('support.knowledge.show', $article)->with('status', 'Knowledge article updated.');
     }
 
     public function deleteArticle(KnowledgeArticle $article): RedirectResponse
@@ -128,7 +150,7 @@ final class SupportManagementController
         $article->delete();
         $this->recordAudit('knowledge_article.deleted', $article);
 
-        return back()->with('status', 'Knowledge article deleted.');
+        return redirect()->route('support.knowledge')->with('status', 'Knowledge article deleted.');
     }
 
     public function live(): View

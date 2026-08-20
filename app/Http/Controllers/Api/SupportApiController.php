@@ -118,14 +118,14 @@ final class SupportApiController
 
     public function knowledge(Request $request): JsonResponse
     {
-        $articles = KnowledgeArticle::query()->where('published', true)->when($request->filled('q'), fn ($builder) => $builder->where(fn ($search) => $search->where('title', 'like', '%'.$request->string('q').'%')->orWhere('body', 'like', '%'.$request->string('q').'%')))->latest()->get();
+        $articles = KnowledgeArticle::query()->where('published', true)->when($request->filled('q'), fn ($builder) => $builder->where(fn ($search) => $search->where('title', 'like', '%'.$request->string('q').'%')->orWhere('body', 'like', '%'.$request->string('q').'%')))->latest()->orderBy('id')->get();
         if ($request->filled('category')) {
             $category = Str::slug($request->string('category')->toString());
             $articles = $articles->filter(fn (KnowledgeArticle $article): bool => Str::slug($article->category) === $category)->values();
         }
         $page = max(1, $request->integer('page', 1));
         $items = $articles->forPage($page, 20)->values()->map(fn (KnowledgeArticle $article): array => $this->articlePayload($article));
-        $categories = KnowledgeArticle::query()->where('published', true)->get()->groupBy('category')->map(fn (Collection $items, string $name): array => ['slug' => Str::slug($name), 'name' => $name, 'articles_count' => $items->count()])->values();
+        $categories = KnowledgeArticle::query()->where('published', true)->latest()->orderBy('id')->get()->groupBy('category')->map(fn (Collection $items, string $name): array => ['slug' => Str::slug($name), 'name' => $name, 'articles_count' => $items->count()])->values();
 
         return response()->json(['data' => $items, 'meta' => ['current_page' => $page, 'last_page' => max(1, (int) ceil($articles->count() / 20)), 'total' => $articles->count()], 'categories' => $categories]);
     }

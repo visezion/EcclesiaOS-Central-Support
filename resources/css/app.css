@@ -50,6 +50,13 @@
     .app-main { padding: 1.25rem 1.75rem; }
     .app-main .rounded-2xl, .app-main .rounded-3xl { border-radius: .5rem; }
     .app-main .shadow-sm { box-shadow: 0 12px 30px rgb(15 23 42 / 5.5%); }
+    .metric-card { transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease; }
+    .metric-card:hover { border-color: #c4b5fd; box-shadow: 0 16px 34px rgb(15 23 42 / 9%); transform: translateY(-2px); }
+    .quick-action { transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease; }
+    .quick-action:hover { border-color: #a78bfa; box-shadow: 0 16px 34px rgb(15 23 42 / 9%); transform: translateY(-3px); }
+    .app-main table tbody tr { transition: background-color 140ms ease; }
+    .app-main table tbody tr:hover { background-color: #fafaff; }
+    .app-main button, .app-main a { transition: color 140ms ease, background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease; }
     @media (max-width: 1023px) { .app-sidebar { position: static; width: 100%; height: auto; } .app-sidebar-scroll { max-height: none; } .app-content { margin-left: 0; } .app-profile { margin-top: 1rem; } .app-topbar { position: static; } }
     @media (max-width: 640px) { .app-topbar-inner, .app-main { padding-left: 1rem; padding-right: 1rem; } .app-date span { display: none; } }
 }

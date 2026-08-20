@@ -17,12 +17,13 @@ FROM php:8.3-apache
 WORKDIR /var/www/html
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libicu-dev libzip-dev unzip \
-    && docker-php-ext-install bcmath intl pdo_mysql zip opcache \
-    && a2enmod rewrite headers expires \
+    && apt-get install -y --no-install-recommends libicu-dev libonig-dev libzip-dev \
+    && docker-php-ext-install -j"$(nproc)" bcmath intl mbstring pdo_mysql zip opcache \
+    && a2enmod rewrite headers expires deflate \
     && rm -rf /var/lib/apt/lists/*
 
 COPY docker/apache/000-default.conf /etc/apache2/sites-available/000-default.conf
+COPY docker/php/production.ini /usr/local/etc/php/conf.d/zz-production.ini
 COPY --from=dependencies /app/vendor ./vendor
 COPY . .
 COPY --from=frontend /app/public/build ./public/build

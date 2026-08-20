@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\AuditLog;
 use App\Models\CommunityQuestion;
 use App\Models\Installation;
+use App\Models\KnowledgeArticle;
+use App\Models\SupportTicket;
 use App\Models\SupportEvent;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,6 +27,8 @@ final class DashboardController
                 'active_today' => Installation::query()->where('last_seen_at', '>=', now()->subDay())->count(),
                 'events' => SupportEvent::query()->count(),
                 'questions' => CommunityQuestion::query()->where('status', 'pending_review')->count(),
+                'open_tickets' => SupportTicket::query()->whereNotIn('status', ['resolved', 'closed'])->count(),
+                'articles' => KnowledgeArticle::query()->where('published', true)->count(),
             ],
         ]);
     }

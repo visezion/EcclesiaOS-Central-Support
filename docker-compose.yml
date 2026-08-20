@@ -16,8 +16,8 @@ services:
       DB_DATABASE: ${DB_DATABASE:-ecclesia_support}
       DB_USERNAME: ${DB_USERNAME:-ecclesia}
       DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
-      SESSION_DRIVER: database
-      CACHE_STORE: database
+      SESSION_DRIVER: file
+      CACHE_STORE: file
       QUEUE_CONNECTION: database
       UPDATE_AGENT_URL: http://updater:8080
       UPDATE_AGENT_TOKEN: ${UPDATE_AGENT_TOKEN:?Set UPDATE_AGENT_TOKEN in .env}
@@ -50,7 +50,7 @@ services:
       DB_DATABASE: ${DB_DATABASE:-ecclesia_support}
       DB_USERNAME: ${DB_USERNAME:-ecclesia}
       DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
-      CACHE_STORE: database
+      CACHE_STORE: file
       QUEUE_CONNECTION: database
     command: ["php", "artisan", "queue:work", "--sleep=3", "--tries=3", "--timeout=90"]
     depends_on:
