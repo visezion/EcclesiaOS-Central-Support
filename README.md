@@ -60,7 +60,8 @@ On the server:
 ```bash
 cp .env.docker.example .env
 # Edit .env and set APP_KEY, APP_URL, DB_PASSWORD, DB_ROOT_PASSWORD,
-# CENTRAL_SUPPORT_AGENT_TOKEN, UPDATE_AGENT_TOKEN, and any mail settings.
+# CENTRAL_SUPPORT_AGENT_TOKEN, CENTRAL_SUPPORT_ENROLLMENT_KEY,
+# UPDATE_AGENT_TOKEN, and any mail settings.
 docker compose up -d --build
 docker compose exec app php artisan migrate --force
 docker compose exec app php artisan optimize
@@ -82,23 +83,28 @@ HTTPS. Do not expose MySQL directly to the internet.
 
 ### Updating a running deployment
 
-Publish an immutable release tag, then update the server from that exact ref:
+Create a semantic version tag such as `v1.0.1` and let the GitHub Actions
+release workflow test and publish it. The GUI Update Center then installs the
+latest stable immutable release automatically:
 
 ```bash
-sh deploy/update.sh v1.0.0
+sh deploy/update.sh v1.0.1
 ```
 
 On Windows PowerShell, use:
 
 ```powershell
-.\deploy\update.ps1 -Ref v1.0.0
+.\deploy\update.ps1 -Ref v1.0.1
 ```
 
-The update workflow fetches the exact Git ref/tag without a mutable `git pull`,
-checks it out detached, rebuilds the application and worker images, runs
-migrations, refreshes Laravel caches, and shows the resulting service status.
-It does not remove Docker volumes. Set `UPDATE_REF` in `.env` for the GUI
-Update Center; production should use a signed tag rather than `main`.
+The update workflow fetches the exact Git release tag without a mutable
+`git pull`, checks it out detached, rebuilds the application and worker images,
+runs migrations, refreshes Laravel caches, and shows the resulting service
+status. The GUI uses the GitHub Releases API, rejects drafts, prereleases, and
+non-immutable releases, then performs the same pinned-tag update.
+It does not remove Docker volumes. Set `UPDATE_REF=latest` in `.env` for the
+GUI Update Center, or set it to an exact tag such as `v1.0.1` for a controlled
+rollout. Never use `main` for production updates.
 
 The **Update Center** page includes an **Update from GitHub** button. It is
 available to signed-in staff and uses the internal updater service to perform the same

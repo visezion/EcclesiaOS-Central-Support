@@ -21,7 +21,12 @@ services:
       QUEUE_CONNECTION: database
       UPDATE_AGENT_URL: http://updater:8080
       UPDATE_AGENT_TOKEN: ${UPDATE_AGENT_TOKEN:?Set UPDATE_AGENT_TOKEN in .env}
-      UPDATE_REF: ${UPDATE_REF:-main}
+      UPDATE_REF: ${UPDATE_REF:-latest}
+      UPDATE_REPOSITORY: ${UPDATE_REPOSITORY:-visezion/EcclesiaOS-Central-Support}
+      UPDATE_CHANNEL: ${UPDATE_CHANNEL:-stable}
+      UPDATE_REQUIRE_IMMUTABLE: ${UPDATE_REQUIRE_IMMUTABLE:-true}
+      UPDATE_GITHUB_API_URL: ${UPDATE_GITHUB_API_URL:-https://api.github.com}
+      GITHUB_UPDATE_TOKEN: ${GITHUB_UPDATE_TOKEN:-}
     ports:
       - "${APP_PORT:-8090}:80"
     depends_on:
@@ -66,7 +71,12 @@ services:
     restart: unless-stopped
     environment:
       UPDATE_AGENT_TOKEN: ${UPDATE_AGENT_TOKEN:?Set UPDATE_AGENT_TOKEN in .env}
-      UPDATE_REF: ${UPDATE_REF:-main}
+      UPDATE_REF: ${UPDATE_REF:-latest}
+      UPDATE_REPOSITORY: ${UPDATE_REPOSITORY:-visezion/EcclesiaOS-Central-Support}
+      UPDATE_CHANNEL: ${UPDATE_CHANNEL:-stable}
+      UPDATE_REQUIRE_IMMUTABLE: ${UPDATE_REQUIRE_IMMUTABLE:-true}
+      UPDATE_GITHUB_API_URL: ${UPDATE_GITHUB_API_URL:-https://api.github.com}
+      GITHUB_UPDATE_TOKEN: ${GITHUB_UPDATE_TOKEN:-}
     volumes:
       - .:/workspace
       - /var/run/docker.sock:/var/run/docker.sock

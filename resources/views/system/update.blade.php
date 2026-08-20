@@ -8,7 +8,7 @@
         <div>
             <p class="text-sm font-semibold text-violet-600">System maintenance</p>
             <h1 class="mt-1 text-3xl font-black tracking-tight text-slate-950">Update Center</h1>
-            <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Pull the latest release from GitHub, rebuild the Docker application, run migrations, and refresh the production cache.</p>
+            <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Install the latest stable GitHub release, rebuild the Docker application, run migrations, and refresh the production cache.</p>
         </div>
         <a href="{{ route('dashboard') }}" class="text-sm font-bold text-violet-600 hover:text-violet-700">Back to overview</a>
     </div>
@@ -34,10 +34,10 @@
     <section class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 class="font-black text-slate-950">What happens during an update?</h2>
         <ol class="mt-4 grid gap-4 text-sm text-slate-600 sm:grid-cols-4">
-            <li><span class="font-black text-violet-600">01</span><p class="mt-1">Pull the selected GitHub branch.</p></li>
-            <li><span class="font-black text-violet-600">02</span><p class="mt-1">Build and restart changed containers.</p></li>
-            <li><span class="font-black text-violet-600">03</span><p class="mt-1">Apply pending database migrations.</p></li>
-            <li><span class="font-black text-violet-600">04</span><p class="mt-1">Refresh Laravel caches and report the result.</p></li>
+            <li><span class="font-black text-violet-600">01</span><p class="mt-1">Find the latest stable release.</p></li>
+            <li><span class="font-black text-violet-600">02</span><p class="mt-1">Verify the published immutable tag.</p></li>
+            <li><span class="font-black text-violet-600">03</span><p class="mt-1">Build and restart changed containers.</p></li>
+            <li><span class="font-black text-violet-600">04</span><p class="mt-1">Apply migrations and refresh caches.</p></li>
         </ol>
     </section>
 </div>

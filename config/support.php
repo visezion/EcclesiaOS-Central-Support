@@ -8,5 +8,9 @@ return [
     'average_response_minutes' => (int) env('CENTRAL_SUPPORT_AVERAGE_RESPONSE_MINUTES', 30),
     'update_agent_url' => env('UPDATE_AGENT_URL'),
     'update_agent_token' => env('UPDATE_AGENT_TOKEN'),
-    'update_ref' => env('UPDATE_REF', env('UPDATE_BRANCH', 'main')),
+    'update_ref' => env('UPDATE_REF', 'latest'),
+    'update_repository' => env('UPDATE_REPOSITORY', 'visezion/EcclesiaOS-Central-Support'),
+    'update_channel' => env('UPDATE_CHANNEL', 'stable'),
+    'update_require_immutable' => filter_var(env('UPDATE_REQUIRE_IMMUTABLE', true), FILTER_VALIDATE_BOOLEAN),
+    'update_github_api_url' => env('UPDATE_GITHUB_API_URL', 'https://api.github.com'),
 ];
