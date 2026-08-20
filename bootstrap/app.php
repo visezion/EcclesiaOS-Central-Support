@@ -13,7 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withCommands([__DIR__.'/../app/Console/Commands'])
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->alias(['super_admin' => \App\Http\Middleware\EnsureSuperAdmin::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

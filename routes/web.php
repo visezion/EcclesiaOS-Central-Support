@@ -3,15 +3,18 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\SupportManagementController;
+use App\Http\Controllers\SetupController;
 use App\Http\Controllers\UpdateController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [AuthController::class, 'create']);
 Route::get('/login', [AuthController::class, 'create'])->name('login');
 Route::post('/login', [AuthController::class, 'store'])->middleware('throttle:6,1')->name('login.store');
+Route::get('/setup', [SetupController::class, 'create'])->name('setup');
+Route::post('/setup', [SetupController::class, 'store'])->middleware('throttle:3,10')->name('setup.store');
 Route::post('/logout', [AuthController::class, 'destroy'])->middleware('auth')->name('logout');
 
-Route::middleware('auth')->group(function (): void {
+Route::middleware(['auth', 'super_admin'])->group(function (): void {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/system/update', [UpdateController::class, 'page'])->name('system.update.page');
     Route::post('/system/update', [UpdateController::class, 'run'])->middleware('throttle:2,10')->name('system.update');
