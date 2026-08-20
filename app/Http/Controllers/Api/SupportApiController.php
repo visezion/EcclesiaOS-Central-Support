@@ -11,10 +11,45 @@ use App\Models\SupportTicket;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 final class SupportApiController
 {
+    public function enroll(Request $request): JsonResponse
+    {
+        $configuredKey = (string) config('support.enrollment_key');
+        abort_unless($configuredKey !== '' && hash_equals($configuredKey, (string) $request->header('X-EcclesiaOS-Enrollment-Key')), 401, 'Invalid enrollment key.');
+
+        $data = $request->validate([
+            'installation_id' => ['required', 'uuid'],
+            'church_name' => ['required', 'string', 'max:180'],
+            'callback_url' => ['required', 'url', 'max:500'],
+            'version' => ['nullable', 'string', 'max:40'],
+        ]);
+        $parts = parse_url($data['callback_url']);
+        abort_unless(! isset($parts['user'], $parts['pass'], $parts['query'], $parts['fragment']), 422, 'The callback URL must not contain credentials, query parameters, or fragments.');
+        if (app()->environment('production')) {
+            abort_unless(strtolower((string) ($parts['scheme'] ?? '')) === 'https', 422, 'Production callback URLs must use HTTPS.');
+        }
+
+        $installation = \App\Models\Installation::query()->where('installation_id', $data['installation_id'])->first();
+        $token = $installation && filled($installation->token_encrypted) ? rescue(fn (): string => Crypt::decryptString($installation->token_encrypted), '', false) : '';
+        if ($token === '') {
+            $token = config('support.installation_token_prefix', 'eco_').Str::random(56);
+        }
+
+        $installation = \App\Models\Installation::query()->updateOrCreate(
+            ['installation_id' => $data['installation_id']],
+            ['church_name' => $data['church_name'], 'callback_url' => rtrim($data['callback_url'], '/'), 'version' => $data['version'] ?? null, 'token_hash' => hash('sha256', $token), 'token_encrypted' => Crypt::encryptString($token), 'enabled' => true, 'last_seen_at' => now()],
+        );
+        AuditLog::query()->create(['action' => 'installation.auto_enrolled', 'installation_id' => $installation->installation_id, 'metadata' => ['church_name' => $installation->church_name, 'version' => $installation->version, 'source' => 'ecclesiaos_installer'], 'ip_address' => $request->ip(), 'user_agent' => $request->userAgent()]);
+        Log::info('EcclesiaOS installation auto-enrolled with Central Support.', ['installation_id' => $installation->installation_id]);
+
+        return response()->json(['connected' => true, 'installation_id' => $installation->installation_id, 'api_token' => $token, 'endpoint' => rtrim((string) config('app.url'), '/')]);
+    }
+
     public function ping(): JsonResponse
     {
         return response()->json(['message' => 'Central support connection is healthy.', 'service' => 'EcclesiaOS Central Support']);

@@ -13,6 +13,18 @@ final class SupportApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_ecclesiaos_can_auto_enroll_with_the_shared_installation_key(): void
+    {
+        config(['support.enrollment_key' => 'enrollment-test-key']);
+        $installationId = (string) Str::uuid();
+
+        $response = $this->withHeaders(['X-EcclesiaOS-Enrollment-Key' => 'enrollment-test-key'])
+            ->postJson('/api/v1/installations/enroll', ['installation_id' => $installationId, 'church_name' => 'Auto Church', 'callback_url' => 'https://auto.example.org', 'version' => '2.0.0']);
+
+        $response->assertOk()->assertJsonPath('connected', true)->assertJsonPath('installation_id', $installationId)->assertJsonPath('api_token', fn ($token) => is_string($token) && str_starts_with($token, 'eco_'));
+        $this->assertDatabaseHas('installations', ['installation_id' => $installationId, 'church_name' => 'Auto Church', 'enabled' => true]);
+    }
+
     public function test_installation_can_ping_and_sync_an_event_once(): void
     {
         $token = 'eco_'.Str::random(56);

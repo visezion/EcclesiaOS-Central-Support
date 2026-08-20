@@ -54,12 +54,13 @@
     .app-profile { align-items: center; background: #020617; display: flex; gap: .75rem; margin: 0 1rem 1.25rem; padding: .75rem; position: relative; z-index: 1; }
     .app-avatar, .app-topbar-avatar { align-items: center; background: linear-gradient(135deg, #fde68a, #d97706); border-radius: 999px; color: #0f172a; display: grid; flex: 0 0 auto; font-size: .875rem; font-weight: 700; height: 2.75rem; place-items: center; width: 2.75rem; }
     .app-logout { color: #cbd5e1; font-size: 1.25rem; padding: .25rem; }
-    .app-content { margin-left: 18rem; min-height: 100vh; }
+    .app-content { display: flex; flex-direction: column; margin-left: 18rem; min-height: 100vh; }
     .app-topbar { background: rgb(255 255 255 / 95%); border-bottom: 1px solid #dfe6f2; position: sticky; top: 0; z-index: 20; }
     .app-topbar-inner { align-items: center; display: flex; gap: .75rem; min-height: 4rem; padding: 0 1.75rem; }
     .app-date { align-items: center; border: 1px solid #dfe6f2; border-radius: .5rem; color: #52627a; display: flex; font-size: .75rem; font-weight: 500; gap: .5rem; padding: .55rem .75rem; }
     .app-topbar-avatar { background: #0f172a; color: #fff; height: 2.5rem; width: 2.5rem; }
-    .app-main { padding: 1.25rem 1.75rem; }
+    .app-main { flex: 1 1 auto; padding: 1.25rem 1.75rem; }
+    .app-footer { align-items: center; border-top: 1px solid #dfe6f2; color: #64748b; display: flex; font-size: .75rem; gap: .75rem; justify-content: space-between; padding: 1rem 1.75rem; }
     .app-main > .mx-auto { width: 100%; }
     .app-main > .max-w-7xl, .app-main > .max-w-5xl { max-width: 100rem; }
     .app-main > .max-w-4xl { max-width: 72rem; }
@@ -88,5 +89,5 @@
     .dashboard-card:hover { border-color: #c4b5fd; box-shadow: 0 14px 34px rgb(15 23 42 / 7.5%); }
     .app-main button, .app-main a { transition: color 140ms ease, background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease; }
     @media (max-width: 1023px) { .app-sidebar { position: static; width: 100%; height: auto; } .app-sidebar-scroll { max-height: none; } .app-content { margin-left: 0; } .app-profile { margin-top: 1rem; } .app-topbar { position: static; } }
-    @media (max-width: 640px) { .app-topbar-inner, .app-main { padding-left: 1rem; padding-right: 1rem; } .app-date span { display: none; } }
+    @media (max-width: 640px) { .app-topbar-inner, .app-main, .app-footer { padding-left: 1rem; padding-right: 1rem; } .app-date span { display: none; } .app-footer { align-items: flex-start; flex-direction: column; } }
 }

@@ -13,3 +13,7 @@ Route::prefix('v1')->middleware(AuthenticateInstallation::class)->group(function
     Route::get('live-support', [SupportApiController::class, 'live']);
     Route::post('live-support/messages', [SupportApiController::class, 'liveMessage']);
 });
+
+Route::post('v1/installations/enroll', [SupportApiController::class, 'enroll'])
+    ->middleware('throttle:10,1')
+    ->name('api.installations.enroll');

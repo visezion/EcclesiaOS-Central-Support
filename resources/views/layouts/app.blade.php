@@ -78,6 +78,10 @@
                 </div>
             </header>
             <main class="app-main">@yield('content')</main>
+            <footer class="app-footer" aria-label="Application version">
+                <span>EcclesiaOS Central Support</span>
+                <span>Version {{ config('app.version', 'development') }}</span>
+            </footer>
         </div>
     </div>
     @stack('scripts')
