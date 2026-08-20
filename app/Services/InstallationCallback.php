@@ -32,7 +32,7 @@ final class InstallationCallback
         $this->send($installation, [
             'event_id' => (string) Str::uuid(),
             'event_type' => 'ticket.updated',
-            'ticket_id' => (string) $ticket->id,
+            'ticket_id' => (string) $ticket->public_id,
             'reference' => $ticket->reference,
             'payload' => ['status' => $ticket->status, 'priority' => $ticket->priority, 'progress' => $ticket->progress, 'agent_name' => auth()->user()?->name],
         ]);
@@ -46,7 +46,7 @@ final class InstallationCallback
         $this->send($installation, [
             'event_id' => (string) Str::uuid(),
             'event_type' => 'ticket.reply.created',
-            'ticket_id' => (string) $ticket->id,
+            'ticket_id' => (string) $ticket->public_id,
             'reference' => $ticket->reference,
             'payload' => ['body' => $reply->body, 'is_internal' => false, 'agent_name' => auth()->user()?->name],
         ]);

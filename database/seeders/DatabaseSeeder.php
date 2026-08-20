@@ -15,6 +15,9 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->call(KnowledgeBaseSeeder::class);
+        $this->call(ChurchMemberKnowledgeSeeder::class);
+
         // User::factory(10)->create();
 
         User::factory()->create([

@@ -19,7 +19,7 @@ final class UpdateManager
             $response = Http::withToken($token)
                 ->acceptJson()
                 ->timeout(8)
-                ->post(rtrim($url, '/').'/update', ['branch' => config('support.update_branch', 'main')]);
+                ->post(rtrim($url, '/').'/update', ['ref' => config('support.update_ref', 'main')]);
         } catch (\Throwable) {
             return ['accepted' => false, 'message' => 'The update agent could not be reached.'];
         }

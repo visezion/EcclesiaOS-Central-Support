@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-branch="${1:-main}"
+ref="${1:-main}"
 project_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 cd "$project_root"
 
@@ -15,13 +15,12 @@ command -v docker >/dev/null 2>&1 || {
     exit 1
 }
 
-echo "Pulling the latest $branch code..."
-git fetch origin "$branch"
-git checkout "$branch"
-git pull --ff-only origin "$branch"
+echo "Fetching the pinned $ref release..."
+git fetch --tags origin "$ref"
+git checkout --detach FETCH_HEAD
 
 echo "Building and starting the updated services..."
-docker compose up -d --build
+docker compose up -d --build app worker
 
 echo "Applying database migrations and refreshing Laravel caches..."
 docker compose exec -T app php artisan migrate --force

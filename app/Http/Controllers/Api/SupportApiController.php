@@ -10,6 +10,8 @@ use App\Models\SupportEvent;
 use App\Models\SupportTicket;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 final class SupportApiController
 {
@@ -56,14 +58,14 @@ final class SupportApiController
         }
         if ($event->wasRecentlyCreated && $data['event_type'] === 'ticket.tracking.updated') {
             $payload = $data['payload'];
-            $ticket = SupportTicket::query()->where('reference', $payload['reference'] ?? null)->first();
+            $ticket = SupportTicket::query()->where('public_id', $payload['central_ticket_id'] ?? null)->orWhere('reference', $payload['reference'] ?? null)->first();
             if ($ticket) {
                 $ticket->update(collect($payload)->only(['status', 'priority', 'progress'])->all());
             }
         }
         if ($event->wasRecentlyCreated && $data['event_type'] === 'ticket.reply.created') {
             $payload = $data['payload'];
-            $ticket = SupportTicket::query()->where('reference', $payload['reference'] ?? null)->first();
+            $ticket = SupportTicket::query()->where('public_id', $payload['central_ticket_id'] ?? null)->orWhere('reference', $payload['reference'] ?? null)->first();
             $reply = $payload['reply'] ?? $payload;
             if ($ticket && filled($reply['body'] ?? null)) {
                 $ticket->replies()->create([
@@ -75,16 +77,27 @@ final class SupportApiController
         }
 
         return response()->json(
-            ['received' => true, 'duplicate' => ! $event->wasRecentlyCreated, 'id' => $event->id, 'ticket_id' => $ticket?->id],
+            ['received' => true, 'duplicate' => ! $event->wasRecentlyCreated, 'id' => $event->id, 'ticket_id' => $ticket?->public_id],
             $event->wasRecentlyCreated ? 201 : 200,
         );
     }
 
     public function questions(Request $request): JsonResponse
     {
-        $questions = CommunityQuestion::query()->where('status', 'published')->when($request->filled('q'), fn ($query) => $query->where(fn ($search) => $search->where('title', 'like', '%'.$request->string('q').'%')->orWhere('body', 'like', '%'.$request->string('q').'%')))->when($request->filled('category'), fn ($query) => $query->where('category', $request->string('category')))->latest()->paginate(20);
+        $query = CommunityQuestion::query()->where('status', 'published')->when($request->filled('q'), fn ($builder) => $builder->where(fn ($search) => $search->where('title', 'like', '%'.$request->string('q').'%')->orWhere('body', 'like', '%'.$request->string('q').'%')))->when($request->filled('category'), fn ($builder) => $builder->where('category', $request->string('category')))->latest();
+        $questions = $query->get();
+        $page = max(1, $request->integer('page', 1));
+        $items = $questions->forPage($page, 20)->values()->map(fn (CommunityQuestion $question): array => $this->questionPayload($question));
 
-        return response()->json(['data' => $questions->items(), 'meta' => ['current_page' => $questions->currentPage(), 'last_page' => $questions->lastPage(), 'total' => $questions->total()]]);
+        return response()->json(['data' => $items, 'meta' => [
+            'current_page' => $page,
+            'last_page' => max(1, (int) ceil($questions->count() / 20)),
+            'total' => $questions->count(),
+            'solved' => CommunityQuestion::query()->whereIn('status', ['answered', 'solved'])->count(),
+            'open' => CommunityQuestion::query()->whereIn('status', ['published', 'pending_review'])->count(),
+            'official_answers' => CommunityQuestion::query()->whereIn('status', ['answered', 'solved'])->count(),
+            'helpful' => 0,
+        ]]);
     }
 
     public function createQuestion(Request $request): JsonResponse
@@ -105,18 +118,31 @@ final class SupportApiController
 
     public function knowledge(Request $request): JsonResponse
     {
-        $query = KnowledgeArticle::query()->where('published', true)->when($request->filled('q'), fn ($builder) => $builder->where(fn ($search) => $search->where('title', 'like', '%'.$request->string('q').'%')->orWhere('body', 'like', '%'.$request->string('q').'%')))->when($request->filled('category'), fn ($builder) => $builder->where('category', $request->string('category')));
-        $articles = $query->latest()->paginate(20);
+        $articles = KnowledgeArticle::query()->where('published', true)->when($request->filled('q'), fn ($builder) => $builder->where(fn ($search) => $search->where('title', 'like', '%'.$request->string('q').'%')->orWhere('body', 'like', '%'.$request->string('q').'%')))->latest()->get();
+        if ($request->filled('category')) {
+            $category = Str::slug($request->string('category')->toString());
+            $articles = $articles->filter(fn (KnowledgeArticle $article): bool => Str::slug($article->category) === $category)->values();
+        }
+        $page = max(1, $request->integer('page', 1));
+        $items = $articles->forPage($page, 20)->values()->map(fn (KnowledgeArticle $article): array => $this->articlePayload($article));
+        $categories = KnowledgeArticle::query()->where('published', true)->get()->groupBy('category')->map(fn (Collection $items, string $name): array => ['slug' => Str::slug($name), 'name' => $name, 'articles_count' => $items->count()])->values();
 
-        return response()->json(['data' => $articles->items(), 'meta' => ['current_page' => $articles->currentPage(), 'last_page' => $articles->lastPage(), 'total' => $articles->total()], 'categories' => KnowledgeArticle::query()->where('published', true)->distinct()->pluck('category')->values()]);
+        return response()->json(['data' => $items, 'meta' => ['current_page' => $page, 'last_page' => max(1, (int) ceil($articles->count() / 20)), 'total' => $articles->count()], 'categories' => $categories]);
     }
 
     public function live(Request $request): JsonResponse
     {
         $installation = $request->attributes->get('installation');
-        $messages = LiveMessage::query()->where('installation_id', $installation->installation_id)->latest()->limit(50)->get();
+        $messages = LiveMessage::query()->where('installation_id', $installation->installation_id)->latest()->limit(50)->get()->reverse()->values()->map(fn (LiveMessage $message): array => [
+            'id' => (string) $message->id,
+            'body' => $message->body,
+            'mine' => false,
+            'status' => $message->status,
+            'sent_at' => $message->created_at?->toIso8601String(),
+            'author' => $message->author,
+        ]);
 
-        return response()->json(['online' => (bool) config('support.live_online', true), 'queue_position' => null, 'average_response' => config('support.average_response_minutes', 30), 'messages' => $messages, 'suggested_articles' => KnowledgeArticle::query()->where('published', true)->latest()->limit(3)->get()]);
+        return response()->json(['online' => (bool) config('support.live_online', true), 'agents_online' => config('support.live_online', true) ? 1 : 0, 'agent' => ['name' => 'Central Support'], 'queue_position' => null, 'average_response' => config('support.average_response_minutes', 30).' minutes', 'messages' => $messages, 'suggested_articles' => KnowledgeArticle::query()->where('published', true)->latest()->limit(3)->get()->map(fn (KnowledgeArticle $article): array => $this->articlePayload($article))]);
     }
 
     public function liveMessage(Request $request): JsonResponse
@@ -126,6 +152,16 @@ final class SupportApiController
         $installation = $request->attributes->get('installation');
         $message = LiveMessage::query()->create(['installation_id' => $installation->installation_id, 'author' => $data['author'], 'body' => $data['message'], 'status' => 'open']);
 
-        return response()->json(['id' => (string) $message->id, 'received' => true, 'message' => $message->body], 201);
+        return response()->json(['id' => (string) $message->id, 'message_id' => (string) $message->id, 'received' => true, 'message' => $message->body], 201);
+    }
+
+    private function articlePayload(KnowledgeArticle $article): array
+    {
+        return ['id' => (string) $article->id, 'slug' => $article->slug, 'title' => $article->title, 'excerpt' => Str::limit(strip_tags($article->body), 220), 'category_name' => $article->category, 'read_time' => max(1, (int) ceil(str_word_count(strip_tags($article->body)) / 200)).' minutes', 'helpful_percent' => 0, 'updated_human' => $article->updated_at?->diffForHumans(), 'body' => $article->body];
+    }
+
+    private function questionPayload(CommunityQuestion $question): array
+    {
+        return ['id' => (string) $question->id, 'category' => $question->category, 'status' => in_array($question->status, ['answered', 'solved'], true) ? 'solved' : 'open', 'title' => $question->title, 'excerpt' => Str::limit(strip_tags($question->body), 220), 'church_name' => data_get($question->church, 'display_name', data_get($question->church, 'name', 'EcclesiaOS church')), 'answers_count' => 0, 'helpful_count' => 0];
     }
 }

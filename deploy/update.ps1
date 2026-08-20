@@ -1,5 +1,5 @@
 param(
-    [string]$Branch = "main"
+    [string]$Ref = "main"
 )
 
 $ErrorActionPreference = "Stop"
@@ -14,13 +14,12 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     throw "Docker is not installed or is not available on PATH."
 }
 
-Write-Host "Pulling the latest $Branch code..."
-git fetch origin $Branch
-git checkout $Branch
-git pull --ff-only origin $Branch
+Write-Host "Fetching the pinned $Ref release..."
+git fetch --tags origin $Ref
+git checkout --detach FETCH_HEAD
 
 Write-Host "Building and starting the updated services..."
-docker compose up -d --build
+docker compose up -d --build app worker
 
 Write-Host "Applying database migrations and refreshing Laravel caches..."
 docker compose exec -T app php artisan migrate --force

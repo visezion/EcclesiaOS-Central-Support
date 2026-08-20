@@ -66,6 +66,10 @@ docker compose exec app php artisan migrate --force
 docker compose exec app php artisan optimize
 ```
 
+The migration also installs the default published knowledge-base article
+“Updating EcclesiaOS safely with Central Support”; no manual seeding step is
+required on a new server.
+
 Generate an application key before the first deployment if needed:
 
 ```bash
@@ -78,25 +82,26 @@ HTTPS. Do not expose MySQL directly to the internet.
 
 ### Updating a running deployment
 
-Commit and push changes to the configured branch. On the server run:
+Publish an immutable release tag, then update the server from that exact ref:
 
 ```bash
-sh deploy/update.sh main
+sh deploy/update.sh v1.0.0
 ```
 
 On Windows PowerShell, use:
 
 ```powershell
-.\deploy\update.ps1 -Branch main
+.\deploy\update.ps1 -Ref v1.0.0
 ```
 
-The update workflow fast-forwards the server, rebuilds the image, recreates
-only changed containers, runs migrations, refreshes Laravel caches, and shows
-the resulting service status. It does not remove Docker volumes. If an update
-fails, inspect `docker compose logs app` and fix the release before retrying.
+The update workflow fetches the exact Git ref/tag without a mutable `git pull`,
+checks it out detached, rebuilds the application and worker images, runs
+migrations, refreshes Laravel caches, and shows the resulting service status.
+It does not remove Docker volumes. Set `UPDATE_REF` in `.env` for the GUI
+Update Center; production should use a signed tag rather than `main`.
 
-The dashboard also includes an **Update from GitHub** button. It is available
-to signed-in staff and uses the internal updater service to perform the same
+The **Update Center** page includes an **Update from GitHub** button. It is
+available to signed-in staff and uses the internal updater service to perform the same
 fast-forward pull, image rebuild, migration, and cache refresh. Set a long,
 random `UPDATE_AGENT_TOKEN` in `.env`; the updater is only exposed on the
 internal Docker network and the token is never shown in the browser.

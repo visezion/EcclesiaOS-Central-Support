@@ -6,7 +6,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 TOKEN = os.environ["UPDATE_AGENT_TOKEN"]
-DEFAULT_BRANCH = os.environ.get("UPDATE_BRANCH", "main")
+DEFAULT_REF = os.environ.get("UPDATE_REF", os.environ.get("UPDATE_BRANCH", "main"))
 STATUS_PATH = "/shared/framework/update-status.json"
 LOCK = threading.Lock()
 
@@ -29,20 +29,19 @@ def run(command):
     return subprocess.run(command, cwd="/workspace", text=True, capture_output=True, check=True)
 
 
-def update(branch):
+def update(ref):
     try:
-        write_status("running", f"Pulling the latest {branch} release from GitHub.", branch=branch)
-        run(["git", "fetch", "origin", branch])
-        run(["git", "checkout", branch])
-        run(["git", "pull", "--ff-only", "origin", branch])
+        write_status("running", f"Fetching the pinned {ref} release from GitHub.", ref=ref)
+        run(["git", "fetch", "--tags", "origin", ref])
+        run(["git", "checkout", "--detach", "FETCH_HEAD"])
         commit = run(["git", "rev-parse", "--short", "HEAD"]).stdout.strip()
-        write_status("running", "Building and restarting the updated application.", branch=branch, commit=commit)
+        write_status("running", "Building and restarting the updated application.", ref=ref, commit=commit)
         compose = ["docker", "compose", "-f", "/workspace/docker-compose.yml", "--env-file", "/workspace/.env"]
         run(compose + ["up", "-d", "--build", "app", "worker"])
-        write_status("running", "Applying database migrations and refreshing caches.", branch=branch, commit=commit)
+        write_status("running", "Applying database migrations and refreshing caches.", ref=ref, commit=commit)
         run(compose + ["exec", "-T", "app", "php", "artisan", "migrate", "--force"])
         run(compose + ["exec", "-T", "app", "php", "artisan", "optimize"])
-        write_status("success", "Update completed successfully.", branch=branch, commit=commit)
+        write_status("success", "Update completed successfully.", ref=ref, commit=commit)
     except subprocess.CalledProcessError as error:
         detail = (error.stderr or error.stdout or "The update command failed.").strip()[-1000:]
         write_status("failed", detail)
@@ -62,13 +61,13 @@ class Handler(BaseHTTPRequestHandler):
             return
         length = int(self.headers.get("Content-Length", "0"))
         body = json.loads(self.rfile.read(length) or b"{}")
-        branch = body.get("branch", DEFAULT_BRANCH)
-        if branch != DEFAULT_BRANCH:
+        ref = body.get("ref", DEFAULT_REF)
+        if ref != DEFAULT_REF:
             LOCK.release()
             self.send_error(400)
             return
-        write_status("queued", "The update has been queued.", branch=branch)
-        threading.Thread(target=update, args=(branch,), daemon=True).start()
+        write_status("queued", "The update has been queued.", ref=ref)
+        threading.Thread(target=update, args=(ref,), daemon=True).start()
         self.send_response(202)
         self.send_header("Content-Type", "application/json")
         self.end_headers()

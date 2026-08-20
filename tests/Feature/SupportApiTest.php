@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Installation;
+use App\Models\CommunityQuestion;
+use App\Models\LiveMessage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -27,12 +29,13 @@ final class SupportApiTest extends TestCase
         $event = ['event_id' => (string) Str::uuid(), 'event_type' => 'ticket.created', 'payload' => ['reference' => 'SUP-TEST123', 'subject' => 'Cannot send email', 'description' => 'The church email test is failing.', 'reporter' => ['name' => 'Church Admin'], 'status' => 'new', 'priority' => 'high']];
 
         $this->withHeaders($headers)->getJson('/api/v1/installations/ping')->assertOk()->assertJsonPath('service', 'EcclesiaOS Central Support');
-        $this->withHeaders($headers)->postJson('/api/v1/church/events', $event)->assertCreated()->assertJsonPath('duplicate', false);
+        $created = $this->withHeaders($headers)->postJson('/api/v1/church/events', $event)->assertCreated()->assertJsonPath('duplicate', false);
         $this->withHeaders($headers)->postJson('/api/v1/church/events', $event)->assertOk()->assertJsonPath('duplicate', true);
 
         $this->assertDatabaseCount('support_events', 1);
         $this->assertDatabaseHas('support_tickets', ['reference' => 'SUP-TEST123', 'subject' => 'Cannot send email', 'priority' => 'high']);
         $this->assertDatabaseHas('installations', ['installation_id' => 'install-test', 'version' => '1.0.31']);
+        $this->assertMatchesRegularExpression('/^[0-9a-f-]{36}$/', (string) $created->json('ticket_id'));
     }
 
     public function test_invalid_installation_credentials_are_rejected(): void
@@ -75,5 +78,18 @@ final class SupportApiTest extends TestCase
         $this->withHeaders($headers)->postJson('/api/v1/church/events', ['event_id' => (string) Str::uuid(), 'event_type' => 'ticket.tracking.updated', 'payload' => ['reference' => 'SUP-TRACK123', 'status' => 'in_progress', 'progress' => 45]])->assertCreated();
 
         $this->assertDatabaseHas('support_tickets', ['reference' => 'SUP-TRACK123', 'subject' => 'Original subject', 'body' => 'Original body', 'status' => 'in_progress', 'progress' => 45]);
+    }
+
+    public function test_ecclesiaos_support_payloads_are_normalized_for_the_client_contract(): void
+    {
+        $token = 'eco_'.Str::random(56);
+        $installation = Installation::query()->create(['installation_id' => 'install-contract', 'church_name' => 'Contract Church', 'token_hash' => hash('sha256', $token)]);
+        CommunityQuestion::query()->create(['installation_id' => $installation->installation_id, 'category' => 'how_to', 'title' => 'How do I update safely?', 'body' => 'Use the documented release workflow.', 'author' => ['display_name' => 'Admin'], 'church' => ['display_name' => 'Contract Church'], 'status' => 'published']);
+        LiveMessage::query()->create(['installation_id' => $installation->installation_id, 'author' => ['display_name' => 'Agent'], 'body' => 'Welcome.', 'status' => 'open']);
+        $headers = ['Authorization' => 'Bearer '.$token, 'X-EcclesiaOS-Installation' => $installation->installation_id];
+
+        $this->withHeaders($headers)->getJson('/api/v1/knowledge/articles')->assertOk()->assertJsonPath('data.0.category_name', 'Deployments & Updates')->assertJsonPath('categories.0.slug', 'deployments-updates');
+        $this->withHeaders($headers)->getJson('/api/v1/community/questions')->assertOk()->assertJsonPath('data.0.excerpt', 'Use the documented release workflow.')->assertJsonPath('data.0.church_name', 'Contract Church');
+        $this->withHeaders($headers)->getJson('/api/v1/live-support')->assertOk()->assertJsonPath('messages.0.sent_at', fn ($value) => is_string($value))->assertJsonPath('agent.name', 'Central Support');
     }
 }

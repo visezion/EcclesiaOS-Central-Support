@@ -21,7 +21,7 @@ services:
       QUEUE_CONNECTION: database
       UPDATE_AGENT_URL: http://updater:8080
       UPDATE_AGENT_TOKEN: ${UPDATE_AGENT_TOKEN:?Set UPDATE_AGENT_TOKEN in .env}
-      UPDATE_BRANCH: ${UPDATE_BRANCH:-main}
+      UPDATE_REF: ${UPDATE_REF:-main}
     ports:
       - "${APP_PORT:-8090}:80"
     depends_on:
@@ -64,7 +64,7 @@ services:
     restart: unless-stopped
     environment:
       UPDATE_AGENT_TOKEN: ${UPDATE_AGENT_TOKEN:?Set UPDATE_AGENT_TOKEN in .env}
-      UPDATE_BRANCH: ${UPDATE_BRANCH:-main}
+      UPDATE_REF: ${UPDATE_REF:-main}
     volumes:
       - .:/workspace
       - /var/run/docker.sock:/var/run/docker.sock

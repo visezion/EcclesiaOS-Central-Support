@@ -7,5 +7,5 @@ return [
     'average_response_minutes' => (int) env('CENTRAL_SUPPORT_AVERAGE_RESPONSE_MINUTES', 30),
     'update_agent_url' => env('UPDATE_AGENT_URL'),
     'update_agent_token' => env('UPDATE_AGENT_TOKEN'),
-    'update_branch' => env('UPDATE_BRANCH', 'main'),
+    'update_ref' => env('UPDATE_REF', env('UPDATE_BRANCH', 'main')),
 ];

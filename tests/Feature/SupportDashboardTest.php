@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Database\Seeders\KnowledgeBaseSeeder;
 use App\Models\Installation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -40,6 +41,17 @@ final class SupportDashboardTest extends TestCase
         $this->actingAs($user)->post('/system/update')->assertRedirect()->assertSessionHas('status', 'Update started.');
         Http::assertSent(fn ($request) => $request->url() === 'http://updater.test/update'
             && $request->hasHeader('Authorization', 'Bearer test-token')
-            && $request['branch'] === 'main');
+            && $request['ref'] === 'main');
+    }
+
+    public function test_default_update_knowledge_article_is_seeded_and_published(): void
+    {
+        $this->seed(KnowledgeBaseSeeder::class);
+
+        $this->assertDatabaseHas('knowledge_articles', [
+            'slug' => 'updating-ecclesiaos-safely-with-central-support',
+            'category' => 'Deployments & Updates',
+            'published' => true,
+        ]);
     }
 }
