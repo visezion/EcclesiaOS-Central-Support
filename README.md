@@ -14,6 +14,10 @@ All routes are under `/api/v1` and require:
 
 Implemented client-compatible routes:
 
+- Individual article and helpfulness feedback endpoints are also available:
+  GET /knowledge/articles/{article}
+  POST /knowledge/articles/{article}/helpful
+
 - `GET /installations/ping`
 - `POST /church/events` with idempotent `event_id` handling
 - `GET|POST /community/questions`
@@ -45,7 +49,11 @@ php artisan serve --host=127.0.0.1 --port=8090
 
 Open `http://127.0.0.1:8090/login` and sign in with the staff account.
 
-The token command displays the token once. Store it in the EcclesiaOS
+The token command displays the token once. For local development, the matching
+CENTRAL_SUPPORT_ENROLLMENT_KEY and default 127.0.0.1:8090 endpoint allow
+EcclesiaOS to enroll automatically without manually copying an installation
+token. Production deployments must set the same long random enrollment key in
+both services. Store manually generated tokens in the EcclesiaOS
 Administration > Support Center > Central Connection settings. Never commit
 tokens or `.env` files.
 

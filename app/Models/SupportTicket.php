@@ -17,7 +17,7 @@ final class SupportTicket extends Model
 
     protected static function booted(): void
     {
-        static::creating(function (self $ticket): void {
+        self::creating(function (self $ticket): void {
             $ticket->public_id ??= (string) Str::uuid();
         });
     }

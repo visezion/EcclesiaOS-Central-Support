@@ -2,9 +2,9 @@
 
 namespace Tests\Feature;
 
-use Database\Seeders\KnowledgeBaseSeeder;
 use App\Models\Installation;
 use App\Models\User;
+use Database\Seeders\KnowledgeBaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;

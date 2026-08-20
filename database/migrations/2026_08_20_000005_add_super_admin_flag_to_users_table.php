@@ -13,7 +13,7 @@ return new class extends Migration
         });
 
         // Existing support users were administrators before this flag existed.
-        \DB::table('users')->update(['is_super_admin' => true]);
+        DB::table('users')->update(['is_super_admin' => true]);
     }
 
     public function down(): void
