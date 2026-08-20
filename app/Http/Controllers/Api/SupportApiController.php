@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\AuditLog;
 use App\Models\CommunityQuestion;
+use App\Models\Installation;
 use App\Models\KnowledgeArticle;
+use App\Models\KnowledgeArticleFeedback;
 use App\Models\LiveMessage;
 use App\Models\SupportEvent;
 use App\Models\SupportTicket;
@@ -34,13 +36,13 @@ final class SupportApiController
             abort_unless(strtolower((string) ($parts['scheme'] ?? '')) === 'https', 422, 'Production callback URLs must use HTTPS.');
         }
 
-        $installation = \App\Models\Installation::query()->where('installation_id', $data['installation_id'])->first();
+        $installation = Installation::query()->where('installation_id', $data['installation_id'])->first();
         $token = $installation && filled($installation->token_encrypted) ? rescue(fn (): string => Crypt::decryptString($installation->token_encrypted), '', false) : '';
         if ($token === '') {
             $token = config('support.installation_token_prefix', 'eco_').Str::random(56);
         }
 
-        $installation = \App\Models\Installation::query()->updateOrCreate(
+        $installation = Installation::query()->updateOrCreate(
             ['installation_id' => $data['installation_id']],
             ['church_name' => $data['church_name'], 'callback_url' => rtrim($data['callback_url'], '/'), 'version' => $data['version'] ?? null, 'token_hash' => hash('sha256', $token), 'token_encrypted' => Crypt::encryptString($token), 'enabled' => true, 'last_seen_at' => now()],
         );
@@ -165,6 +167,38 @@ final class SupportApiController
         return response()->json(['data' => $items, 'meta' => ['current_page' => $page, 'last_page' => max(1, (int) ceil($articles->count() / 20)), 'total' => $articles->count()], 'categories' => $categories]);
     }
 
+    public function article(string $article): JsonResponse
+    {
+        $knowledgeArticle = $this->publishedArticle($article);
+
+        return response()->json(['data' => $this->articlePayload($knowledgeArticle, true)]);
+    }
+
+    public function rateArticle(Request $request, string $article): JsonResponse
+    {
+        $knowledgeArticle = $this->publishedArticle($article);
+        $data = $request->validate([
+            'helpful' => ['required', 'boolean'],
+            'voter.local_id' => ['nullable', 'string', 'max:180'],
+        ]);
+        $installation = $request->attributes->get('installation');
+        $voterId = (string) ($data['voter']['local_id'] ?? 'installation');
+
+        KnowledgeArticleFeedback::query()->updateOrCreate(
+            [
+                'knowledge_article_id' => $knowledgeArticle->id,
+                'installation_id' => $installation->installation_id,
+                'voter_id' => $voterId !== '' ? $voterId : 'installation',
+            ],
+            ['helpful' => (bool) $data['helpful']],
+        );
+
+        return response()->json([
+            'helpful' => (bool) $data['helpful'],
+            'helpful_percent' => $this->helpfulPercent($knowledgeArticle),
+        ]);
+    }
+
     public function live(Request $request): JsonResponse
     {
         $installation = $request->attributes->get('installation');
@@ -190,9 +224,32 @@ final class SupportApiController
         return response()->json(['id' => (string) $message->id, 'message_id' => (string) $message->id, 'received' => true, 'message' => $message->body], 201);
     }
 
-    private function articlePayload(KnowledgeArticle $article): array
+    private function articlePayload(KnowledgeArticle $article, bool $includeBody = false): array
     {
-        return ['id' => (string) $article->id, 'slug' => $article->slug, 'title' => $article->title, 'excerpt' => Str::limit(strip_tags($article->body), 220), 'category_name' => $article->category, 'read_time' => max(1, (int) ceil(str_word_count(strip_tags($article->body)) / 200)).' minutes', 'helpful_percent' => 0, 'updated_human' => $article->updated_at?->diffForHumans(), 'body' => $article->body];
+        $payload = ['id' => (string) $article->id, 'slug' => $article->slug, 'title' => $article->title, 'excerpt' => Str::limit(strip_tags($article->body), 220), 'category_name' => $article->category, 'read_time' => max(1, (int) ceil(str_word_count(strip_tags($article->body)) / 200)).' minutes', 'helpful_percent' => $this->helpfulPercent($article), 'updated_human' => $article->updated_at?->diffForHumans()];
+        if ($includeBody) {
+            $payload['body'] = $article->body;
+        }
+
+        return $payload;
+    }
+
+    private function publishedArticle(string $article): KnowledgeArticle
+    {
+        return KnowledgeArticle::query()
+            ->where('published', true)
+            ->where(fn ($query) => $query->whereKey($article)->orWhere('slug', $article))
+            ->firstOrFail();
+    }
+
+    private function helpfulPercent(KnowledgeArticle $article): int
+    {
+        $votes = KnowledgeArticleFeedback::query()->where('knowledge_article_id', $article->id)->get();
+        if ($votes->isEmpty()) {
+            return 0;
+        }
+
+        return (int) round($votes->where('helpful', true)->count() / $votes->count() * 100);
     }
 
     private function questionPayload(CommunityQuestion $question): array

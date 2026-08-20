@@ -10,6 +10,8 @@ Route::prefix('v1')->middleware(AuthenticateInstallation::class)->group(function
     Route::get('community/questions', [SupportApiController::class, 'questions']);
     Route::post('community/questions', [SupportApiController::class, 'createQuestion']);
     Route::get('knowledge/articles', [SupportApiController::class, 'knowledge']);
+    Route::get('knowledge/articles/{article}', [SupportApiController::class, 'article']);
+    Route::post('knowledge/articles/{article}/helpful', [SupportApiController::class, 'rateArticle']);
     Route::get('live-support', [SupportApiController::class, 'live']);
     Route::post('live-support/messages', [SupportApiController::class, 'liveMessage']);
 });

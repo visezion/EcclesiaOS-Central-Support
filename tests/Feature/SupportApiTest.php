@@ -2,8 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Models\Installation;
 use App\Models\CommunityQuestion;
+use App\Models\Installation;
+use App\Models\KnowledgeArticle;
 use App\Models\LiveMessage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -103,5 +104,26 @@ final class SupportApiTest extends TestCase
         $this->withHeaders($headers)->getJson('/api/v1/knowledge/articles')->assertOk()->assertJsonPath('data.0.category_name', 'Deployments & Updates')->assertJsonPath('categories.0.slug', 'deployments-updates');
         $this->withHeaders($headers)->getJson('/api/v1/community/questions')->assertOk()->assertJsonPath('data.0.excerpt', 'Use the documented release workflow.')->assertJsonPath('data.0.church_name', 'Contract Church');
         $this->withHeaders($headers)->getJson('/api/v1/live-support')->assertOk()->assertJsonPath('messages.0.sent_at', fn ($value) => is_string($value))->assertJsonPath('agent.name', 'Central Support');
+    }
+
+    public function test_ecclesiaos_can_read_and_rate_a_knowledge_article(): void
+    {
+        $token = 'eco_'.Str::random(56);
+        $installation = Installation::query()->create(['installation_id' => 'install-knowledge', 'church_name' => 'Knowledge Church', 'token_hash' => hash('sha256', $token)]);
+        $article = KnowledgeArticle::query()->create(['slug' => 'attendance-guide', 'title' => 'Attendance guide', 'body' => 'Follow these steps to manage attendance.', 'category' => 'Attendance', 'published' => true]);
+        $headers = ['Authorization' => 'Bearer '.$token, 'X-EcclesiaOS-Installation' => $installation->installation_id];
+
+        $this->withHeaders($headers)
+            ->getJson('/api/v1/knowledge/articles/'.$article->id)
+            ->assertOk()
+            ->assertJsonPath('data.body', 'Follow these steps to manage attendance.');
+
+        $this->withHeaders($headers)
+            ->postJson('/api/v1/knowledge/articles/'.$article->id.'/helpful', ['helpful' => true, 'voter' => ['local_id' => 'user-1']])
+            ->assertOk()
+            ->assertJsonPath('helpful', true)
+            ->assertJsonPath('helpful_percent', 100);
+
+        $this->assertDatabaseHas('knowledge_article_feedback', ['knowledge_article_id' => $article->id, 'installation_id' => $installation->installation_id, 'voter_id' => 'user-1', 'helpful' => true]);
     }
 }
