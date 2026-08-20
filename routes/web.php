@@ -24,6 +24,7 @@ Route::middleware(['auth', 'super_admin'])->group(function (): void {
     Route::patch('/installations/{installation}/toggle', [DashboardController::class, 'toggleInstallation'])->name('installations.toggle');
     Route::get('/support/tickets', [SupportManagementController::class, 'tickets'])->name('support.tickets');
     Route::post('/support/tickets', [SupportManagementController::class, 'storeTicket'])->name('support.tickets.store');
+    Route::get('/support/tickets/{ticket}', [SupportManagementController::class, 'showTicket'])->name('support.tickets.show');
     Route::patch('/support/tickets/{ticket}', [SupportManagementController::class, 'updateTicket'])->name('support.tickets.update');
     Route::post('/support/tickets/{ticket}/replies', [SupportManagementController::class, 'replyTicket'])->name('support.tickets.replies.store');
     Route::delete('/support/tickets/{ticket}', [SupportManagementController::class, 'deleteTicket'])->name('support.tickets.delete');

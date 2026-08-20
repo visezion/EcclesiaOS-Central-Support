@@ -78,6 +78,14 @@
     .quick-action:hover { border-color: #a78bfa; box-shadow: 0 16px 34px rgb(15 23 42 / 9%); transform: translateY(-3px); }
     .app-main table tbody tr { transition: background-color 140ms ease; }
     .app-main table tbody tr:hover { background-color: #fafaff; }
+    .app-main table { border-collapse: collapse; font-size: .8125rem; }
+    .app-main table th { color: #64748b; font-size: .6875rem; font-weight: 600; letter-spacing: 0; text-transform: uppercase; }
+    .app-main table th, .app-main table td { border-bottom: 1px solid #edf2f7; }
+    .app-main table th { padding-top: .7rem; padding-bottom: .7rem; }
+    .app-main table td { padding-top: .75rem; padding-bottom: .75rem; }
+    .app-main table tbody tr:last-child td { border-bottom: 0; }
+    .dashboard-card { min-width: 0; overflow: hidden; border: 1px solid #dfe6f2; border-radius: .5rem; background: #fff; box-shadow: 0 12px 30px rgb(15 23 42 / 5.5%); padding: 1rem; transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease; }
+    .dashboard-card:hover { border-color: #c4b5fd; box-shadow: 0 14px 34px rgb(15 23 42 / 7.5%); }
     .app-main button, .app-main a { transition: color 140ms ease, background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease; }
     @media (max-width: 1023px) { .app-sidebar { position: static; width: 100%; height: auto; } .app-sidebar-scroll { max-height: none; } .app-content { margin-left: 0; } .app-profile { margin-top: 1rem; } .app-topbar { position: static; } }
     @media (max-width: 640px) { .app-topbar-inner, .app-main { padding-left: 1rem; padding-right: 1rem; } .app-date span { display: none; } }

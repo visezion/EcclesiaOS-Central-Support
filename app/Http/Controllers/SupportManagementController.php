@@ -22,12 +22,25 @@ final class SupportManagementController
         $tickets = SupportTicket::query()
             ->when($request->filled('q'), fn ($query) => $query->where(fn ($search) => $search->where('reference', 'like', '%'.$request->string('q').'%')->orWhere('subject', 'like', '%'.$request->string('q').'%')->orWhere('installation_id', 'like', '%'.$request->string('q').'%')))
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')))
-            ->with('replies')
+            ->withCount('replies')
             ->latest()
             ->paginate(20)
             ->withQueryString();
 
-        return view('support.tickets', ['tickets' => $tickets]);
+        return view('support.tickets', [
+            'tickets' => $tickets,
+            'stats' => [
+                'open' => SupportTicket::query()->whereNotIn('status', ['resolved', 'closed'])->count(),
+                'urgent' => SupportTicket::query()->where('priority', 'urgent')->whereNotIn('status', ['resolved', 'closed'])->count(),
+                'waiting' => SupportTicket::query()->where('status', 'waiting_on_church')->count(),
+                'resolved' => SupportTicket::query()->whereIn('status', ['resolved', 'closed'])->count(),
+            ],
+        ]);
+    }
+
+    public function showTicket(SupportTicket $ticket): View
+    {
+        return view('support.tickets.show', ['ticket' => $ticket->load('replies')]);
     }
 
     public function storeTicket(Request $request): RedirectResponse
@@ -53,7 +66,7 @@ final class SupportManagementController
 
         $this->recordAudit('ticket.updated', $ticket, ['reference' => $ticket->reference, 'status' => $ticket->status, 'installation_id' => $ticket->installation_id]);
 
-        return back()->with('status', 'Ticket updated.');
+        return redirect()->route('support.tickets.show', $ticket)->with('status', 'Ticket updated and synchronized.');
     }
 
     public function replyTicket(Request $request, SupportTicket $ticket, InstallationCallback $callback): RedirectResponse
@@ -70,7 +83,7 @@ final class SupportManagementController
 
         $this->recordAudit('ticket.reply.created', $ticket, ['reference' => $ticket->reference, 'internal' => $reply->is_internal, 'installation_id' => $ticket->installation_id]);
 
-        return back()->with('status', 'Reply sent to EcclesiaOS.');
+        return redirect()->route('support.tickets.show', $ticket)->with('status', 'Follow-up sent to EcclesiaOS.');
     }
 
     public function deleteTicket(SupportTicket $ticket): RedirectResponse
@@ -78,7 +91,7 @@ final class SupportManagementController
         $ticket->delete();
         $this->recordAudit('ticket.deleted', $ticket, ['reference' => $ticket->reference]);
 
-        return back()->with('status', 'Ticket deleted.');
+        return redirect()->route('support.tickets')->with('status', 'Ticket deleted.');
     }
 
     public function community(): View

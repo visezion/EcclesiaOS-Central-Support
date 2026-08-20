@@ -27,6 +27,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      updater:
+        condition: service_healthy
     volumes:
       - app_storage:/var/www/html/storage
     healthcheck:
@@ -71,6 +73,12 @@ services:
       - app_storage:/shared
     expose:
       - "8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
 
   db:
     image: mysql:8.4

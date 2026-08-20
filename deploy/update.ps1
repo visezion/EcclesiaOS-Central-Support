@@ -19,7 +19,7 @@ git fetch --tags origin $Ref
 git checkout --detach FETCH_HEAD
 
 Write-Host "Building and starting the updated services..."
-docker compose up -d --build app worker
+docker compose up -d --build app worker updater
 
 Write-Host "Applying database migrations and refreshing Laravel caches..."
 docker compose exec -T app php artisan migrate --force

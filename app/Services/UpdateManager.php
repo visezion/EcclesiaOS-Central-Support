@@ -18,10 +18,13 @@ final class UpdateManager
         try {
             $response = Http::withToken($token)
                 ->acceptJson()
+                ->connectTimeout(3)
                 ->timeout(8)
                 ->post(rtrim($url, '/').'/update', ['ref' => config('support.update_ref', 'main')]);
-        } catch (\Throwable) {
-            return ['accepted' => false, 'message' => 'The update agent could not be reached.'];
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return ['accepted' => false, 'message' => 'The update agent could not be reached. Check that the updater service is running and that UPDATE_AGENT_TOKEN matches in both services.'];
         }
 
         if ($response->successful()) {

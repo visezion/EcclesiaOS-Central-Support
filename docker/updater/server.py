@@ -50,6 +50,15 @@ def update(ref):
 
 
 class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path != "/health":
+            self.send_error(404)
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(b'{"status":"ok","service":"update-agent"}')
+
     def do_POST(self):
         if self.path != "/update" or self.headers.get("Authorization") != f"Bearer {TOKEN}":
             self.send_error(404)
